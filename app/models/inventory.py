@@ -34,10 +34,17 @@ class Transformer(Base):
 
 class Customer(Base):
     __tablename__ = "customer"
+    __table_args__ = (
+        CheckConstraint(
+            "acorn_grouped IN ('Affluent', 'Comfortable', 'Adversity', 'Unknown')",
+            name="acorn_grouped_valid",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(30), unique=True)
     acorn_group: Mapped[str] = mapped_column(String(30))
+    acorn_grouped: Mapped[str] = mapped_column(String(20))
 
     meters: Mapped[list["Meter"]] = relationship(back_populates="customer")
     contracts: Mapped[list["Contract"]] = relationship(back_populates="customer")
