@@ -55,9 +55,12 @@ def build_contract(row):
     }
 
 
-def build_meter(row):
-    return {
+def build_meter(row, transformer_code: str | None = None):
+    meter = {
         "lclid": row["LCLid"],
         "customer_code": f"CU-{row['LCLid']}",
     }
+    if transformer_code:
+        meter["transformer_code"] = transformer_code
+    return meter
 
