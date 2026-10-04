@@ -7,10 +7,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from seed.config import VALID_MODES, SeedSettings, build_settings
+from seed.upsert import upsert_by_natural_key
 from seed.f1 import (
     read_households,
     select_households,
@@ -59,14 +59,6 @@ def seed_f1_households(rows: list[dict], meter_to_tx: dict[str, str]) -> tuple[l
     return customers, contracts, meters
 
 
-def upsert_circuits(session: Session, circuits: list[dict]):
-    if not circuits:
-        return
-    stmt = pg_insert(Circuit).values(circuits)
-    stmt = stmt.on_conflict_do_nothing(index_elements=["code"])
-    session.execute(stmt)
-
-
 def _resolve_transformer_fks(session: Session, transformers: list[dict]) -> list[dict]:
     """Replace circuit_code with circuit_id."""
     circuit_codes = {t["circuit_code"] for t in transformers if t.get("circuit_code")}
@@ -83,24 +75,6 @@ def _resolve_transformer_fks(session: Session, transformers: list[dict]) -> list
         resolved.append(resolved_t)
     return resolved
 
-
-def upsert_transformers(session: Session, transformers: list[dict]):
-    if not transformers:
-        return
-    transformers_resolved = _resolve_transformer_fks(session, transformers)
-    stmt = pg_insert(Transformer).values(transformers_resolved)
-    stmt = stmt.on_conflict_do_nothing(index_elements=["code"])
-    session.execute(stmt)
-
-
-def upsert_customers(session: Session, customers: list[dict]):
-    if not customers:
-        return
-    stmt = pg_insert(Customer).values(customers)
-    stmt = stmt.on_conflict_do_nothing(index_elements=["code"])
-    session.execute(stmt)
-
-
 def _resolve_contract_fks(session: Session, contracts: list[dict]) -> list[dict]:
     """Replace customer_code with customer_id."""
     cust_codes = {c["customer_code"] for c in contracts if c.get("customer_code")}
@@ -116,24 +90,6 @@ def _resolve_contract_fks(session: Session, contracts: list[dict]) -> list[dict]
             resolved_c["customer_id"] = cust_map.get(c["customer_code"])
         resolved.append(resolved_c)
     return resolved
-
-
-def upsert_contracts(session: Session, contracts: list[dict]):
-    if not contracts:
-        return
-    contracts_resolved = _resolve_contract_fks(session, contracts)
-    stmt = pg_insert(Contract).values(contracts_resolved)
-    stmt = stmt.on_conflict_do_nothing(index_elements=["code"])
-    session.execute(stmt)
-
-
-def upsert_meters(session: Session, meters: list[dict]):
-    if not meters:
-        return
-    # Need to resolve transformer_code -> transformer_id, customer_code -> customer_id
-    # For upsert, we'll do a two-pass: first ensure FKs exist, then upsert meters
-    # Simpler: resolve codes to IDs before upsert
-    pass  # Will handle in main()
 
 
 def _resolve_fks(session: Session, meters: list[dict]) -> list[dict]:
@@ -161,20 +117,6 @@ def _resolve_fks(session: Session, meters: list[dict]) -> list[dict]:
             resolved_m["customer_id"] = cust_map.get(m["customer_code"])
         resolved.append(resolved_m)
     return resolved
-
-
-def upsert_meters_resolved(session: Session, meters: list[dict]):
-    if not meters:
-        return
-    stmt = pg_insert(Meter).values(meters)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["lclid"],
-        set_={
-            "transformer_id": stmt.excluded.transformer_id,
-            "customer_id": stmt.excluded.customer_id,
-        },
-    )
-    session.execute(stmt)
 
 
 def main():
@@ -226,27 +168,43 @@ def main():
     with Session(engine) as session:
         print("\nInsertando en base de datos...")
 
-        # Circuits & Transformers first (FK targets)
-        upsert_circuits(session, plan.circuits)
-        upsert_transformers(session, plan.transformers)
-        session.flush()
-        print(f"  Circuitos: OK")
-        print(f"  Transformadores: OK")
+    # Circuits (DO NOTHING, natural key = code)
+    upsert_by_natural_key(session, Circuit, plan.circuits, natural_key="code")
+    print(f"  Circuitos: OK")
 
-        # Customers & Contracts
-        upsert_customers(session, customers)
-        upsert_contracts(session, contracts)
-        session.flush()
-        print(f"  Clientes: OK")
-        print(f"  Contratos: OK")
+    # Transformers (DO NOTHING, natural key = code, con FK resolver)
+    upsert_by_natural_key(
+        session, Transformer, plan.transformers, 
+        natural_key="code", 
+        fk_resolver=_resolve_transformer_fks
+    )
+    session.flush()
+    print(f"  Transformadores: OK")
 
-        # Meters (resolve FKs then upsert)
-        meters_resolved = _resolve_fks(session, meters)
-        upsert_meters_resolved(session, meters_resolved)
-        print(f"  Medidores: OK")
+    # Customers (DO NOTHING, natural key = code)
+    upsert_by_natural_key(session, Customer, customers, natural_key="code")
+    print(f"  Clientes: OK")
 
-        session.commit()
-        print("\n¡Seed completado con éxito!")
+    # Contracts (DO NOTHING, natural key = code, con FK resolver)
+    upsert_by_natural_key(
+        session, Contract, contracts, 
+        natural_key="code", 
+        fk_resolver=_resolve_contract_fks
+    )
+    session.flush()
+    print(f"  Contratos: OK")
+
+    # Meters (DO UPDATE, natural key = lclid, update_fields = FKs, con FK resolver)
+    upsert_by_natural_key(
+        session, Meter, meters, 
+        natural_key="lclid",
+        update_fields=["transformer_id", "customer_id"],
+        fk_resolver=_resolve_fks
+    )
+    print(f"  Medidores: OK")
+
+    session.commit()
+    print("\n¡Seed completado con éxito!")
 
 
 if __name__ == "__main__":

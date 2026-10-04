@@ -326,3 +326,21 @@ Semana 1: arquitectura v1, modelo de datos operativo y seed funcionando (E-01, E
 | T-01.7 | Prueba automatizada que compara el hash de las tablas en dos corridas con la misma semilla (CT-06). |
 
 Las siguientes historias (simulador F3, productor y consumidor de RabbitMQ, API del cliente con JWT, API del centro de control y simulador F5) se agregan aquí a medida que se creen en Jira.
+
+## Upsert por Clave Natural (Idempotent Seeding)
+
+Utilidad reutilizable en `seed/upsert.py`:
+
+```python
+from seed.upsert import upsert_by_natural_key
+
+# DO NOTHING (entidades inmutables)
+upsert_by_natural_key(session, Circuit, records, natural_key="code")
+
+# DO UPDATE (actualiza FKs si cambian)
+upsert_by_natural_key(
+    session, Meter, records,
+    natural_key="lclid",
+    update_fields=["transformer_id", "customer_id"],
+    fk_resolver=resolve_meter_fks
+)
