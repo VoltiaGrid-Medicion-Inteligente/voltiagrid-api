@@ -19,6 +19,10 @@ Este es el **Proyecto 04** del programa. Este README documenta la arquitectura c
 9. [Cómo correr el proyecto](#9-cómo-correr-el-proyecto)
 10. [Flujo de trabajo con Git y Jira](#10-flujo-de-trabajo-con-git-y-jira)
 11. [Plan de trabajo del backend](#11-plan-de-trabajo-del-backend)
+12. [US-01: detalle técnico y trazabilidad (P1)](#12-us-01-detalle-técnico-y-trazabilidad-p1)
+13. [Glosario técnico P1 (US-01)](#13-glosario-técnico-p1-us-01)
+14. [Decisiones de arquitectura de US-01 (ADRs técnicas)](#14-decisiones-de-arquitectura-de-us-01-adrs-técnicas)
+15. [Testing del seed](#15-testing-del-seed)
 
 ---
 
@@ -344,3 +348,126 @@ upsert_by_natural_key(
     update_fields=["transformer_id", "customer_id"],
     fk_resolver=resolve_meter_fks
 )
+```
+
+Estrategia por entidad (KAN-14):
+
+| Entidad | Clave natural | Conflicto | `update_fields` |
+|---|---|---|---|
+| `circuit` | `code` | `DO NOTHING` | — |
+| `transformer` | `code` | `DO NOTHING` | — (resuelve `circuit_code` → `circuit_id` antes) |
+| `customer` | `code` | `DO NOTHING` | — |
+| `contract` | `code` | `DO NOTHING` | — (resuelve `customer_code` → `customer_id` antes) |
+| `meter` | `lclid` | `DO UPDATE` | `transformer_id`, `customer_id` (resuelve códigos → IDs antes) |
+
+## 12. US-01: detalle técnico y trazabilidad (P1)
+
+Estado: **US-01 completada** (KAN-12 a KAN-16). Alcance P1: seed F4, modelos, migraciones, CLI, tests.
+
+### Pipeline del seed (`seed/__main__.py`)
+
+```mermaid
+flowchart LR
+  CSV["data/raw/informations_households.csv"] --> READ["read_households()"]
+  READ --> SORT["select_households(): ordena por LCLid, toma primeros N"]
+  SORT --> LCLIDS["lista LCLid ordenada"]
+  LCLIDS --> NET["plan_network(rng, lclids)"]
+  NET --> PLAN["NetworkPlan: circuits + transformers + meter_to_transformer"]
+  PLAN --> F1["seed_f1_households(): customers + contracts + meters"]
+  F1 --> UPSERT["upserts con resolvers FK: circuits → transformers → customers → contracts → meters"]
+  UPSERT --> DB[("PostgreSQL")]
+```
+
+Orden de escritura en BD (respeta FKs): `circuits` → `transformers` (`flush`) → `customers` → `contracts` (`flush`) → `meters` (`commit`).
+
+### Despliegue del seed (local vs RDS)
+
+```mermaid
+flowchart LR
+  subgraph LOCAL["Local (dev)"]
+    SEEDL["python -m seed --mode dev"] --> DBL[("PostgreSQL docker-compose puerto 5433")]
+  end
+  subgraph CLOUD["Nube (RDS)"]
+    SEEDC["python -m seed --mode full"] --> DBR[("RDS PostgreSQL")]
+  end
+  SEEDL -.->|mismo código, cambia solo DATABASE_URL| SEEDC
+```
+
+### Trazabilidad AC → test → código
+
+| AC | Qué exige | Dónde está implementado | Test que lo verifica |
+|---|---|---|---|
+| AC1 Reproducibilidad | Misma semilla → datos idénticos, 0 duplicados | `seed/__main__.py`, `seed/upsert.py`, `seed/network.py` (RNG aislado) | `tests/test_reproducibility.py::test_seed_reproducibility` (hash MD5 por tabla, 2 corridas), `tests/test_upsert.py::test_seed_full_idempotent`, `::test_deterministic_assignment` |
+| AC2 Modos de volumen | `dev`=200, `full`=5500 medidores | `seed/config.py` (`METERS_BY_MODE`), CLI `--mode`, env `MODE` | `test_meter_counts_per_transformer_range` (suma total), verificación manual `--mode dev/full` |
+| AC3 Coherencia de red | `LCLid` válido F1; 50–80 medidores por transformador | `seed/f1.py` (`select_households`, `build_meter`), `seed/network.py` (`plan_network`, bloques contiguos) | `tests/test_upsert.py::test_meter_counts_per_transformer_range`, `::test_upsert_meter_fk_integrity` |
+| AC4 Portabilidad | Funciona en Postgres local o RDS con solo `DATABASE_URL` | `seed/config.py` (`build_settings`: CLI > env > default), `docker-compose.yml`, `.env.example` | Configuración validada en seed (`--database-url` o env), `tests/conftest.py` usa `DATABASE_URL` |
+
+### Reglas de determinismo aplicadas (CT-06)
+
+- RNG aislado: `rng = random.Random(settings.seed)`; nunca `random.seed()` global.
+- LCLids ordenados antes de asignar (`select_households` ordena por `LCLid`; `dev` es subconjunto exacto de `full`).
+- Códigos deterministas: `TR-%05d`, `CT-%03d`, `CU-{LCLid}`, `CT-{LCLid}-1`; sin `uuid4()` ni `datetime.now()`.
+- Sin `created_at`: evita columnas que cambien por corrida y romperían el hash (ver `docs/erd.md`).
+- Idempotencia: `ON CONFLICT DO NOTHING` (circuit/transformer/customer/contract) y `DO UPDATE` de FKs (meter).
+
+### Cómo verificar US-01
+
+```bash
+cp .env.example .env
+docker compose up -d
+alembic upgrade head
+python -m seed --mode dev --seed 42 --defect-rate 0
+python -m seed --mode dev --seed 42 --defect-rate 0  # segunda corrida: 0 duplicados
+python -m pytest tests/ -v  # en Docker si psycopg local falla en Windows
+```
+
+## 13. Glosario técnico P1 (US-01)
+
+| Término | Qué significa | Dónde aparece |
+|---|---|---|
+| `LCLid` | Identificador natural del hogar/medidor en F1 (ej. `MAC000002`). Clave natural de `meter`. | `seed/f1.py`, `meter.lclid` |
+| ACORN / `acorn_grouped` | Clasificación socioeconómica del hogar. `acorn_group` = valor crudo F1; `acorn_grouped` = valor normalizado con `CHECK (Affluent, Comfortable, Adversity, Unknown)`. | `Customer`, migración `cb10f7277f53` |
+| `stdorToU` / `tariff_type` | Tarifa del contrato en F1 (`Std`/`ToU`) mapeada a (`standard`/`dynamic`) con `CHECK`. | `seed/f1.py::map_tariff`, `Contract` |
+| Clave natural | Columna única de negocio usada para identificar filas (`code`, `lclid`). Base del upsert. | `docs/erd.md`, `seed/upsert.py` |
+| Upsert idempotente | `INSERT ... ON CONFLICT`: `DO NOTHING` (no duplica) o `DO UPDATE` (actualiza FKs). Re-ejecutar no corrompe. | `seed/upsert.py`, KAN-14 |
+| RNG aislado | Instancia propia `random.Random(seed)` en vez de estado global. Evita que otras librerías alteren la secuencia. | `seed/__main__.py::_rng_from_seed`, `seed/network.py` |
+| `defect_rate` | Tasa 0–1 de defectos de calidad a inyectar. En test CT-06 se usa `0.0` para comparar hashes. | `seed/config.py` |
+| `MODE dev/full` | Volumen parametrizable: `dev`=200, `full`=5500 medidores. `dev` = primeros N ordenados = subconjunto de `full`. | `seed/config.py` |
+| FK resolver | Función que convierte códigos (`circuit_code`) a IDs (`circuit_id`) consultando la BD antes del upsert. | `seed/__main__.py::_resolve_*` |
+| `NetworkPlan` | Dataclass con `circuits`, `transformers`, `meter_to_transformer` (`{lclid: transformer_code}`). | `seed/network.py` |
+| CT-06 | Criterio transversal: prueba automatizada que compara hash de tablas en 2 corridas con misma semilla. | `tests/test_reproducibility.py` |
+| F4 | Inventario de red (clientes, medidores, transformadores, circuitos, contratos). Lo puebla el seed. | `app/models/inventory.py` |
+
+## 14. Decisiones de arquitectura de US-01 (ADRs técnicas)
+
+> Las ADRs formales del programa viven en `voltiagrid-docs` (P4). Aquí quedan las decisiones técnicas de US-01 (P1) con contexto y consecuencia.
+
+| ID | Decisión | Contexto | Consecuencia |
+|---|---|---|---|
+| ADR-US01-01 | PostgreSQL + SQLAlchemy 2.0 + Alembic para F4 | Requisito del programa; mismo esquema local y RDS | Modelos tipados (`Mapped`), migraciones versionadas; autogenerate detecta columnas pero el `CHECK` se agrega a mano |
+| ADR-US01-02 | Upsert por clave natural (`ON CONFLICT`) en vez de `session.merge()` | Re-ejecuciones frecuentes; claves naturales estables (`code`, `lclid`) | Idempotencia a nivel BD; `DO NOTHING` para inmutables, `DO UPDATE` solo de FKs en `meter` |
+| ADR-US01-03 | RNG aislado `random.Random(seed)` | Librerías externas pueden usar `random` global y romper reproducibilidad | Secuencia determinista por seed; CT-06 pasa |
+| ADR-US01-04 | `seed/network.py` separado de `seed/f1.py` | `f1.py` = hogares (datos CSV); `network.py` = topología (algoritmo) | Separación de responsabilidades; topología reutilizable para otros datasets |
+| ADR-US01-05 | Sin `created_at` / sin `uuid4()` / sin `now()` en seed | Cualquier valor no determinista cambia el hash entre corridas | Hash estable; `dev` subconjunto exacto de `full` |
+| ADR-US01-06 | Tests con transacción + `rollback` | Aislamiento sin recrear BD; misma `DATABASE_URL` | Cada test deja la BD limpia; rápido y portable |
+| ADR-US01-07 | Capacidades en rangos aleatorios (TX 100–500, CT 1000–5000 kVA) | Equipo pidió "datos reales pero en rangos" | Valores plausibles sin dataset externo; deterministas por RNG |
+
+## 15. Testing del seed
+
+```bash
+# En Docker (recomendado en Windows por psycopg):
+docker run --rm --network host -v "<ruta>/voltiagrid-api:/app" -w /app python:3.12-slim bash -c "pip install -r requirements.txt -q && python -m pytest tests/ -v"
+```
+
+| Test | Qué verifica |
+|---|---|
+| `test_upsert_circuit_do_nothing` | `DO NOTHING` no duplica `circuit` |
+| `test_upsert_transformer_do_nothing_with_fk` | `DO NOTHING` + resolver `circuit_code` → `circuit_id` |
+| `test_upsert_meter_do_update` | `DO UPDATE` cambia `transformer_id` en conflicto de `lclid` |
+| `test_upsert_meter_fk_integrity` | FKs resueltos existen (sin huérfanos) |
+| `test_seed_full_idempotent` | Upsert idempotente por entidad |
+| `test_deterministic_assignment` | Misma seed → mismos `TR`/`CT` y mapa meter→transformer |
+| `test_meter_counts_per_transformer_range` | 50–80 por transformador (último puede llevar el resto) |
+| `test_seed_reproducibility` (CT-06) | Hash MD5 idéntico en 2 corridas (`circuit`, `transformer`, `customer`, `contract`, `meter`) |
+
+> Nota Windows: `psycopg`/`psycopg-binary` pueden ser bloqueados por Application Control. Por eso los tests y el seed se validan en contenedor `python:3.12-slim` con `--network host`.
