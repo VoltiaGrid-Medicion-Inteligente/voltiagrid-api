@@ -85,29 +85,29 @@ Scale: 5,500 pilot meters (264,000 readings/day) → 200,000 projected meters (9
 
 ```mermaid
 flowchart LR
-  subgraph SOURCES["Sources"]
-    F1["F1/F2<br/>Kaggle history"]
-    F3["F3 Concentrator<br/>simulator"]
-    F5["F5 Transformer<br/>API"]
-    F6["F6 Open-Meteo"]
-    F7["F7 Tariff CSV"]
-  end
-  F3 --> RMQ["RabbitMQ<br/>topic exchange + queues"]
-  RMQ --> CON["Consumers<br/>manual ACK"]
-  CON --> RAW["S3 raw"]
-  F1 --> RAW
-  F5 --> RAW
-  F6 --> RAW
-  F7 --> RAW
-  RAW --> SPK["Spark<br/>ECS/Fargate"]
-  RDS[("RDS PostgreSQL<br/>F4 inventory")] --> SPK
-  SPK --> CLEAN["S3 clean"]
-  CLEAN --> CUR["S3 curated"]
-  SPK --> RDS
-  AF["Airflow<br/>Celery + RabbitMQ"] -.->|orchestrates| SPK
-  CUR --> PBI["Power BI"]
-  RDS --> API["FastAPI<br/>JWT"]
-  API --> USR["Customer +<br/>control center"]
+    subgraph Sources
+        F1[F1 and F2 - Kaggle history]
+        F3[F3 concentrator simulator]
+        F5[F5 transformer API]
+        F6[F6 Open-Meteo]
+        F7[F7 tariff CSV]
+    end
+    F3 --> RMQ[RabbitMQ topic exchange and queues]
+    RMQ --> CON[Consumers with manual ACK]
+    CON --> RAW[S3 raw]
+    F1 --> RAW
+    F5 --> RAW
+    F6 --> RAW
+    F7 --> RAW
+    RAW --> SPK[Spark on ECS Fargate]
+    RDS[(RDS PostgreSQL - F4 inventory)] --> SPK
+    SPK --> CLEAN[S3 clean]
+    CLEAN --> CUR[S3 curated]
+    SPK --> RDS
+    AF[Airflow with Celery and RabbitMQ] -.->|orchestrates| SPK
+    CUR --> PBI[Power BI]
+    RDS --> API[FastAPI with JWT]
+    API --> USR[Customer and control center]
 ```
 
 Reading order: **generate → ingest (RabbitMQ, persistent queues, manual ACK) → process (Spark) → orchestrate (Airflow) → expose (FastAPI) → analyze (Power BI)**. Business-rule cleanup (RN-02 deduplication) happens in Spark, never in the consumer, so raw data is never lost.

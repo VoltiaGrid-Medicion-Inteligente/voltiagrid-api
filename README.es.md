@@ -85,29 +85,29 @@ Escala: 5.500 medidores piloto (264.000 lecturas/día) → 200.000 medidores pro
 
 ```mermaid
 flowchart LR
-  subgraph FUENTES["Fuentes"]
-    F1["F1/F2<br/>Kaggle histórico"]
-    F3["F3 Simulador<br/>concentradores"]
-    F5["F5 API<br/>transformadores"]
-    F6["F6 Open-Meteo"]
-    F7["F7 CSV tarifas"]
-  end
-  F3 --> RMQ["RabbitMQ<br/>exchange topic + colas"]
-  RMQ --> CON["Consumers<br/>ACK manual"]
-  CON --> RAW["S3 raw"]
-  F1 --> RAW
-  F5 --> RAW
-  F6 --> RAW
-  F7 --> RAW
-  RAW --> SPK["Spark<br/>ECS/Fargate"]
-  RDS[("RDS PostgreSQL<br/>inventario F4")] --> SPK
-  SPK --> CLEAN["S3 clean"]
-  CLEAN --> CUR["S3 curated"]
-  SPK --> RDS
-  AF["Airflow<br/>Celery + RabbitMQ"] -.->|orquesta| SPK
-  CUR --> PBI["Power BI"]
-  RDS --> API["FastAPI<br/>JWT"]
-  API --> USR["Cliente +<br/>centro de control"]
+    subgraph Fuentes
+        F1[F1 y F2 - Kaggle histórico]
+        F3[F3 simulador de concentradores]
+        F5[F5 API de transformadores]
+        F6[F6 Open-Meteo]
+        F7[F7 CSV de tarifas]
+    end
+    F3 --> RMQ[RabbitMQ exchange topic y colas]
+    RMQ --> CON[Consumers con ACK manual]
+    CON --> RAW[S3 raw]
+    F1 --> RAW
+    F5 --> RAW
+    F6 --> RAW
+    F7 --> RAW
+    RAW --> SPK[Spark en ECS Fargate]
+    RDS[(RDS PostgreSQL - inventario F4)] --> SPK
+    SPK --> CLEAN[S3 clean]
+    CLEAN --> CUR[S3 curated]
+    SPK --> RDS
+    AF[Airflow con Celery y RabbitMQ] -.->|orquesta| SPK
+    CUR --> PBI[Power BI]
+    RDS --> API[FastAPI con JWT]
+    API --> USR[Cliente y centro de control]
 ```
 
 Orden de lectura: **generar → ingerir (RabbitMQ, colas persistentes, ACK manual) → procesar (Spark) → orquestar (Airflow) → exponer (FastAPI) → analizar (Power BI)**. La limpieza de negocio (deduplicación RN-02) se hace en Spark, nunca en el consumidor, para no perder el dato crudo.
