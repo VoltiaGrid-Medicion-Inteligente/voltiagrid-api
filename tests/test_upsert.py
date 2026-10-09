@@ -1,17 +1,8 @@
 """Tests for upsert_by_natural_key utility."""
 
-import pytest
-from app.models.inventory import Circuit, Transformer, Customer, Contract, Meter
+from app.models.inventory import Circuit, Transformer, Customer, Meter
 from seed.upsert import upsert_by_natural_key
-from seed.network import plan_network, NetworkPlan
-from seed.f1 import (
-    read_households,
-    select_households,
-    build_customer,
-    build_contract,
-    build_meter,
-)
-from seed.config import build_settings
+from seed.network import plan_network
 import random
 
 
@@ -78,7 +69,7 @@ def test_upsert_meter_do_update(session):
     upsert_by_natural_key(session, Circuit, [{"code": "CT-1", "capacity_kva": 1000}], "code")
     session.flush()
     
-    ct = session.query(Circuit).filter(Circuit.code == "CT-1").one()
+    session.query(Circuit).filter(Circuit.code == "CT-1").one()
     
     def resolve_tx_fks(session, transformers):
         circuit_map = dict(session.query(Circuit.code, Circuit.id).all())
@@ -178,7 +169,7 @@ def test_seed_full_idempotent(session):
     # Transformer
     upsert_by_natural_key(session, Circuit, [{"code": "CT-TX", "capacity_kva": 1000}], "code")
     session.flush()
-    ct = session.query(Circuit).filter(Circuit.code == "CT-TX").one()
+    session.query(Circuit).filter(Circuit.code == "CT-TX").one()
     
     def resolve_tx(session, txs):
         ct_map = dict(session.query(Circuit.code, Circuit.id).all())
