@@ -39,7 +39,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: alembic upgrade head
-      - run: pytest tests/ -v
+      - run: python -m pytest tests/ -v
 
   secrets:
     runs-on: ubuntu-latest
