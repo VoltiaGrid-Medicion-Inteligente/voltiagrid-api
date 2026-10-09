@@ -1,0 +1,3 @@
+import os
+
+GITHUB_TOKEN = "ghp_Abc123Def456Ghi789Jkl012Mno345Pqr678"
