@@ -2,7 +2,6 @@
 """Reusable upsert-by-natural-key utilities."""
 
 from typing import Callable, Optional
-from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 

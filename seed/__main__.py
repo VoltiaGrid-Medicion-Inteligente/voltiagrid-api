@@ -2,14 +2,13 @@
 
 import argparse
 import random
-from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from seed.config import VALID_MODES, SeedSettings, build_settings
+from seed.config import VALID_MODES, build_settings
 from seed.upsert import upsert_by_natural_key
 from seed.f1 import (
     read_households,
@@ -170,7 +169,7 @@ def main():
 
     # Circuits (DO NOTHING, natural key = code)
     upsert_by_natural_key(session, Circuit, plan.circuits, natural_key="code")
-    print(f"  Circuitos: OK")
+    print("  Circuitos: OK")
 
     # Transformers (DO NOTHING, natural key = code, con FK resolver)
     upsert_by_natural_key(
@@ -179,11 +178,11 @@ def main():
         fk_resolver=_resolve_transformer_fks
     )
     session.flush()
-    print(f"  Transformadores: OK")
+    print("  Transformadores: OK")
 
     # Customers (DO NOTHING, natural key = code)
     upsert_by_natural_key(session, Customer, customers, natural_key="code")
-    print(f"  Clientes: OK")
+    print("  Clientes: OK")
 
     # Contracts (DO NOTHING, natural key = code, con FK resolver)
     upsert_by_natural_key(
@@ -192,7 +191,7 @@ def main():
         fk_resolver=_resolve_contract_fks
     )
     session.flush()
-    print(f"  Contratos: OK")
+    print("  Contratos: OK")
 
     # Meters (DO UPDATE, natural key = lclid, update_fields = FKs, con FK resolver)
     upsert_by_natural_key(
@@ -201,7 +200,7 @@ def main():
         update_fields=["transformer_id", "customer_id"],
         fk_resolver=_resolve_fks
     )
-    print(f"  Medidores: OK")
+    print("  Medidores: OK")
 
     session.commit()
     print("\n¡Seed completado con éxito!")

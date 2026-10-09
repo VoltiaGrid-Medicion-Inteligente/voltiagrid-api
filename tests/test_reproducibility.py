@@ -8,7 +8,6 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from seed.config import build_settings
 from seed.__main__ import main as seed_main
 from app.models.inventory import Circuit, Transformer, Customer, Contract, Meter
 
