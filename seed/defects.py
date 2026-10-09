@@ -68,3 +68,39 @@ def should_skip_day(rng: random.Random, missing_day_rate: float) -> bool:
     This function would be called from the main loop that generates the days.
     """
     return rng.random() < missing_day_rate
+
+# T-02.3: Apply the catalog to a batch of readings and count what was injected.
+
+def apply_defects(readings: list, catalog: DefectCatalog, rng: random.Random) -> tuple:
+    """
+    Applies the catalog rates to a list of readings.
+    - null and out_of_bounds both change energy_kwh, so only one of them
+      can hit the same reading (one roll, consecutive thresholds).
+    - offset_clock and duplicate are rolled independently.
+    Returns (new_readings, counts) where counts has one entry per defect type.
+    The input list is not modified.
+    """
+    counts = {"null": 0, "out_of_bounds": 0, "offset_clock": 0, "duplicate": 0}
+    result = []
+    for original in readings:
+        reading = dict(original)
+
+        roll = rng.random()
+        if roll < catalog.null_rate:
+            reading = inject_null(reading, rng)
+            counts["null"] += 1
+        elif roll < catalog.null_rate + catalog.out_of_bounds_rate:
+            reading = inject_out_of_bounds(reading, rng)
+            counts["out_of_bounds"] += 1
+
+        if rng.random() < catalog.offset_clock_rate:
+            reading = inject_offset_clock(reading, rng)
+            counts["offset_clock"] += 1
+
+        if rng.random() < catalog.duplicate_rate:
+            result.extend(inject_duplicate(reading, rng))
+            counts["duplicate"] += 1
+        else:
+            result.append(reading)
+
+    return result, counts
