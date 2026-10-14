@@ -15,5 +15,44 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  f3-simulator:
+    build:
+      context: .
+      dockerfile: simulators/concentrator/Dockerfile
+    profiles: ["simulators"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/%2F
+      SIM_SEED: ${SIM_SEED:-42}
+      SIM_METERS: ${SIM_METERS:-0}
+      SIM_TICK_SECONDS: ${SIM_TICK_SECONDS:-10}
+      SIM_START: ${SIM_START:-2013-01-01T00:00:00Z}
+      SIM_OUTAGE_METERS: ${SIM_OUTAGE_METERS:-0}
+      SIM_OUTAGE_HOURS: ${SIM_OUTAGE_HOURS:-24}
+      DEFECT_RATE: ${DEFECT_RATE:-0.02}
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+
 volumes:
   pgdata:
+  rabbitmqdata:
