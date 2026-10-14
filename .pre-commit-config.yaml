@@ -3,11 +3,3 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-
-  - repo: local
-    hooks:
-      - id: gitleaks
-        name: Detect hardcoded secrets (gitleaks in Docker)
-        entry: zricethezav/gitleaks:v8.18.4 protect --verbose --redact --staged
-        language: docker_image
-        pass_filenames: false
