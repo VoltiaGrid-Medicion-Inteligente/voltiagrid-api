@@ -1,0 +1,23 @@
+meta {
+  name: Other customer 403
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{consumptionUrl}}/customers/{{otherCustomerCode}}/consumption/daily?month=2013-02
+  body: none
+  auth: bearer
+}
+
+params:query {
+  month: 2013-02
+}
+
+auth:bearer {
+  token: {{customerToken}}
+}
+
+assert {
+  res.status: eq 403
+}

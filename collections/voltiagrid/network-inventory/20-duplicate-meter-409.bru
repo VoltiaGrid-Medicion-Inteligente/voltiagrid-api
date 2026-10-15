@@ -1,0 +1,27 @@
+meta {
+  name: Duplicate meter 409
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{inventoryUrl}}/meters
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "lclid": "{{newMeterLclid}}",
+    "customer_code": "{{newCustomerCode}}",
+    "transformer_code": "{{newTransformerCode}}"
+  }
+}
+
+assert {
+  res.status: eq 409
+}

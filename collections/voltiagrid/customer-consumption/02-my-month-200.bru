@@ -1,0 +1,30 @@
+meta {
+  name: My month 200
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{consumptionUrl}}/me/consumption/daily?month=2013-02
+  body: none
+  auth: bearer
+}
+
+params:query {
+  month: 2013-02
+}
+
+auth:bearer {
+  token: {{customerToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.customer_code: eq {{customerCode}}
+}
+
+tests {
+  test("one row per day and band (28 x 3)", function() {
+    expect(res.getBody().days.length).to.equal(84);
+  });
+}

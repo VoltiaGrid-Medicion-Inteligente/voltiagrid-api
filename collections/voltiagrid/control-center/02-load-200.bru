@@ -1,0 +1,31 @@
+meta {
+  name: Load 200
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{controlCenterUrl}}/transformers/{{transformerCode}}/load?start=2013-03-04T00:00:00Z&end=2013-03-04T02:00:00Z
+  body: none
+  auth: bearer
+}
+
+params:query {
+  start: 2013-03-04T00:00:00Z
+  end: 2013-03-04T02:00:00Z
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.interval_minutes: eq 15
+}
+
+tests {
+  test("8 points of 15 minutes in 2 hours", function() {
+    expect(res.getBody().points.length).to.equal(8);
+  });
+}

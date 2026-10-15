@@ -1,0 +1,32 @@
+meta {
+  name: Create customer 201
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{inventoryUrl}}/customers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "{{newCustomerCode}}",
+    "acorn_group": "ACORN-E",
+    "acorn_grouped": "Affluent"
+  }
+}
+
+script:pre-request {
+  bru.setVar("newCustomerCode", "CU-T" + Date.now());
+}
+
+assert {
+  res.status: eq 201
+  res.body.code: eq {{newCustomerCode}}
+}

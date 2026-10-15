@@ -1,0 +1,23 @@
+meta {
+  name: Transformers of a circuit 200
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{inventoryUrl}}/transformers?circuit_code=CT-000
+  body: none
+  auth: bearer
+}
+
+params:query {
+  circuit_code: CT-000
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+}

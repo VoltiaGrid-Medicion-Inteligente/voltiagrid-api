@@ -1,0 +1,19 @@
+meta {
+  name: Unknown circuit 404
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{inventoryUrl}}/circuits/CT-NOPE
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 404
+}

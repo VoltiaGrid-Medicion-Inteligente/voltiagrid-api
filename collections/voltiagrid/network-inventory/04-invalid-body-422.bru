@@ -1,0 +1,33 @@
+meta {
+  name: Invalid body 422
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{inventoryUrl}}/customers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "CU-X",
+    "acorn_group": "ACORN-A",
+    "acorn_grouped": "Rich"
+  }
+}
+
+assert {
+  res.status: eq 422
+}
+
+tests {
+  test("the error names the field", function() {
+    expect(JSON.stringify(res.getBody())).to.contain("acorn_grouped");
+  });
+}

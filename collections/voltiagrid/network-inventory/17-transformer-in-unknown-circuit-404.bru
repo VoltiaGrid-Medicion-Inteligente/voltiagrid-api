@@ -1,0 +1,27 @@
+meta {
+  name: Transformer in unknown circuit 404
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{inventoryUrl}}/transformers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "TR-NEVER1",
+    "circuit_code": "CT-NOPE",
+    "capacity_kva": "250.00"
+  }
+}
+
+assert {
+  res.status: eq 404
+}

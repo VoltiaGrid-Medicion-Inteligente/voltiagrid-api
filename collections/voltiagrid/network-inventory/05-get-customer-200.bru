@@ -1,0 +1,20 @@
+meta {
+  name: Get customer 200
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{inventoryUrl}}/customers/{{customerCode}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.code: eq {{customerCode}}
+}
