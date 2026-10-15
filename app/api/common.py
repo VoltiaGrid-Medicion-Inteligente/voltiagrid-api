@@ -1,66 +1,77 @@
-from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from typing import Annotated, Generic, TypeVar
+"""Shared pieces of the three API contracts (US-12, T-12.1).
+
+Stub authentication: until JWT is implemented (US-13, T-13.1) the APIs accept
+these bearer tokens so the contract and the test collection can be used today:
+
+    Authorization: Bearer stub-customer-CU-MAC000002   -> customer CU-MAC000002
+    Authorization: Bearer stub-internal                -> internal user (billing, control center)
+
+T-13.1 replaces `get_principal` with real JWT validation; the routes do not change.
+"""
+
+from dataclasses import dataclass
+from typing import Generic, Literal, TypeVar
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
-
-
-bearer = HTTPBearer(auto_error=False)
-
-class ErrorResponse(BaseModel):
-    code: str
-    message: str
+from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
+bearer = HTTPBearer(auto_error=False, description="Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`")
+
+
+class FieldError(BaseModel):
+    field: str = Field(examples=["acorn_grouped"])
+    message: str = Field(examples=["Input should be 'Affluent', 'Comfortable', 'Adversity' or 'Unknown'"])
+
+
+class ErrorResponse(BaseModel):
+    """The one error body every API returns."""
+
+    detail: str = Field(examples=["Transformer 'TR-99999' not found"])
+    errors: list[FieldError] | None = Field(default=None, description="Only on 422: one item per invalid field")
+
+
+class Health(BaseModel):
+    status: Literal["ok"] = "ok"
+
+
 class Page(BaseModel, Generic[T]):
     items: list[T]
-    total: int
-    limit: int
-    offset: int
+    page: int = Field(ge=1, examples=[1])
+    size: int = Field(ge=1, le=200, examples=[50])
+    total: int = Field(ge=0, examples=[200])
 
-class Principal(BaseModel):
-    kind: str
+
+@dataclass(frozen=True)
+class Principal:
+    role: Literal["customer", "internal"]
     customer_code: str | None = None
 
-def get_principal(
-    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> Principal:
-    if creds is None or creds.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = creds.credentials
+
+def get_principal(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Principal:
+    """Who is calling. 401 when there is no token or it is not valid."""
+    if credentials is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
+    token = credentials.credentials
     if token == "stub-internal":
-        return Principal(kind="internal")
-    if token.startswith("stub-customer-"):
-        code = token[len("stub-customer-") :]
-        if not code:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-        return Principal(kind="customer", customer_code=code)
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-class HealthResponse(BaseModel):
-    status: str = "ok"
+        return Principal(role="internal")
+    if token.startswith("stub-customer-") and len(token) > len("stub-customer-"):
+        return Principal(role="customer", customer_code=token.removeprefix("stub-customer-"))
+    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
 
 
-_STATUS_TO_CODE = {401: "unauthorized", 403: "forbidden", 404: "not_found", 409: "conflict"}
+def require_internal(principal: Principal = Depends(get_principal)) -> Principal:
+    """Only internal users (billing, control center, operations). 403 for customers."""
+    if principal.role != "internal":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Internal users only")
+    return principal
 
 
-def add_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(HTTPException)
-    async def _http_handler(_: Request, exc: HTTPException) -> JSONResponse:
-        status_code = exc.status_code or 500
-        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-        return JSONResponse(
-            status_code=status_code,
-            content={"code": _STATUS_TO_CODE.get(status_code, "error"), "message": detail},
-        )
+AUTH_ERRORS = {
+    401: {"model": ErrorResponse, "description": "Missing, invalid or expired token"},
+    403: {"model": ErrorResponse, "description": "The caller is not allowed to read this resource"},
+}
+NOT_FOUND = {404: {"model": ErrorResponse, "description": "Not found"}}
 
-    @app.exception_handler(RequestValidationError)
-    async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse(
-            status_code=422,
-            content={"code": "validation_error", "message": str(exc.errors())},
-        )
