@@ -1,0 +1,480 @@
+{
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "description": "The one error body every API returns.",
+        "properties": {
+          "detail": {
+            "examples": [
+              "Transformer 'TR-99999' not found"
+            ],
+            "title": "Detail",
+            "type": "string"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only on 422: one item per invalid field",
+            "title": "Errors"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FieldError": {
+        "properties": {
+          "field": {
+            "examples": [
+              "acorn_grouped"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "examples": [
+              "Input should be 'Affluent', 'Comfortable', 'Adversity' or 'Unknown'"
+            ],
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "Health",
+        "type": "object"
+      },
+      "LoadPoint": {
+        "properties": {
+          "capacity_pct": {
+            "description": "load_kw / capacity_kva x 100",
+            "examples": [
+              "51.3"
+            ],
+            "title": "Capacity Pct",
+            "type": "string"
+          },
+          "interval_start": {
+            "format": "date-time",
+            "title": "Interval Start",
+            "type": "string"
+          },
+          "load_kw": {
+            "description": "average load in the interval = delivered kWh x 4",
+            "examples": [
+              "72.4"
+            ],
+            "title": "Load Kw",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interval_start",
+          "load_kw",
+          "capacity_pct"
+        ],
+        "title": "LoadPoint",
+        "type": "object"
+      },
+      "OverloadAlert": {
+        "properties": {
+          "capacity_kva": {
+            "examples": [
+              "396.27"
+            ],
+            "title": "Capacity Kva",
+            "type": "string"
+          },
+          "capacity_pct": {
+            "examples": [
+              "104.5"
+            ],
+            "title": "Capacity Pct",
+            "type": "string"
+          },
+          "circuit_code": {
+            "examples": [
+              "CT-000"
+            ],
+            "title": "Circuit Code",
+            "type": "string"
+          },
+          "interval_start": {
+            "format": "date-time",
+            "title": "Interval Start",
+            "type": "string"
+          },
+          "load_kw": {
+            "examples": [
+              "414.1"
+            ],
+            "title": "Load Kw",
+            "type": "string"
+          },
+          "transformer_code": {
+            "examples": [
+              "TR-00002"
+            ],
+            "title": "Transformer Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transformer_code",
+          "circuit_code",
+          "interval_start",
+          "load_kw",
+          "capacity_kva",
+          "capacity_pct"
+        ],
+        "title": "OverloadAlert",
+        "type": "object"
+      },
+      "TransformerLoad": {
+        "properties": {
+          "capacity_kva": {
+            "examples": [
+              "141.00"
+            ],
+            "title": "Capacity Kva",
+            "type": "string"
+          },
+          "interval_minutes": {
+            "default": 15,
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/LoadPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "transformer_code": {
+            "examples": [
+              "TR-00001"
+            ],
+            "title": "Transformer Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transformer_code",
+          "capacity_kva",
+          "points"
+        ],
+        "title": "TransformerLoad",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Load per transformer every 15 minutes and overload alerts (RF-07).",
+    "title": "VoltiaGrid control center API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/alerts/overload": {
+      "get": {
+        "operationId": "overload_alerts_alerts_overload_get",
+        "parameters": [
+          {
+            "description": "defaults to now (UTC)",
+            "in": "query",
+            "name": "at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "defaults to now (UTC)",
+              "examples": [
+                "2013-03-04T19:00:00Z"
+              ],
+              "title": "At"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OverloadAlert"
+                  },
+                  "title": "Response Overload Alerts Alerts Overload Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transformers above their capacity in the 15-minute interval that contains `at`",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/transformers/{transformer_code}/load": {
+      "get": {
+        "operationId": "transformer_load_transformers__transformer_code__load_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transformer_code",
+            "required": true,
+            "schema": {
+              "examples": [
+                "TR-00001"
+              ],
+              "title": "Transformer Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "ISO 8601 with time zone",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "ISO 8601 with time zone",
+              "examples": [
+                "2013-03-04T00:00:00Z"
+              ],
+              "format": "date-time",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "exclusive",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "exclusive",
+              "examples": [
+                "2013-03-05T00:00:00Z"
+              ],
+              "format": "date-time",
+              "title": "End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransformerLoad"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown transformer"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "end before start or range above 7 days"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Load per 15-minute interval and % of capacity for one transformer",
+        "tags": [
+          "load"
+        ]
+      }
+    }
+  }
+}
