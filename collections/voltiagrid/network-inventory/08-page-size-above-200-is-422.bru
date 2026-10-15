@@ -1,0 +1,23 @@
+meta {
+  name: Page size above 200 is 422
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{inventoryUrl}}/meters?size=500
+  body: none
+  auth: bearer
+}
+
+params:query {
+  size: 500
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 422
+}

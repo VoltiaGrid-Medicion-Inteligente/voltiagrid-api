@@ -1,0 +1,23 @@
+meta {
+  name: Invalid month 422
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{consumptionUrl}}/me/consumption/daily?month=2013-13
+  body: none
+  auth: bearer
+}
+
+params:query {
+  month: 2013-13
+}
+
+auth:bearer {
+  token: {{customerToken}}
+}
+
+assert {
+  res.status: eq 422
+}

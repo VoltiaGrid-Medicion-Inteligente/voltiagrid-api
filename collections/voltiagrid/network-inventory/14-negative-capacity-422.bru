@@ -1,0 +1,25 @@
+meta {
+  name: Negative capacity 422
+  type: http
+  seq: 14
+}
+
+patch {
+  url: {{inventoryUrl}}/circuits/{{newCircuitCode}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "capacity_kva": "-5"
+  }
+}
+
+assert {
+  res.status: eq 422
+}

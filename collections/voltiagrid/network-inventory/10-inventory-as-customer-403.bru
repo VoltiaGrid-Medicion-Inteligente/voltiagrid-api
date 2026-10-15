@@ -1,0 +1,19 @@
+meta {
+  name: Inventory as customer 403
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{inventoryUrl}}/meters
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{customerToken}}
+}
+
+assert {
+  res.status: eq 403
+}

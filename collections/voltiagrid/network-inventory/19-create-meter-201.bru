@@ -1,0 +1,32 @@
+meta {
+  name: Create meter 201
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{inventoryUrl}}/meters
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "lclid": "{{newMeterLclid}}",
+    "customer_code": "{{newCustomerCode}}",
+    "transformer_code": "{{newTransformerCode}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("newMeterLclid", "T" + Date.now());
+}
+
+assert {
+  res.status: eq 201
+  res.body.transformer_code: eq {{newTransformerCode}}
+}

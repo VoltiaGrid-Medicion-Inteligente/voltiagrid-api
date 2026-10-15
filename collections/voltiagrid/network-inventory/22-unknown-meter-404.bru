@@ -1,0 +1,19 @@
+meta {
+  name: Unknown meter 404
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{inventoryUrl}}/meters/NOPE
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 404
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Create circuit 201
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{inventoryUrl}}/circuits
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "{{newCircuitCode}}",
+    "capacity_kva": "1500.00"
+  }
+}
+
+script:pre-request {
+  bru.setVar("newCircuitCode", "CT-T" + Date.now());
+}
+
+assert {
+  res.status: eq 201
+  res.body.code: eq {{newCircuitCode}}
+}

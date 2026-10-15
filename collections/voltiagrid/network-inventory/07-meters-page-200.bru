@@ -1,0 +1,31 @@
+meta {
+  name: Meters page 200
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{inventoryUrl}}/meters?page=1&size=1
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  size: 1
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.size: eq 1
+}
+
+tests {
+  test("returns only the requested page", function() {
+    expect(res.getBody().items.length).to.equal(1);
+  });
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "VoltiaGrid APIs",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

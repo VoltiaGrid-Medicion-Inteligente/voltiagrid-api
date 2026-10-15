@@ -1,0 +1,33 @@
+meta {
+  name: Create transformer 201
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{inventoryUrl}}/transformers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "{{newTransformerCode}}",
+    "circuit_code": "{{newCircuitCode}}",
+    "capacity_kva": "250.00"
+  }
+}
+
+script:pre-request {
+  bru.setVar("newTransformerCode", "TR-T" + Date.now());
+}
+
+assert {
+  res.status: eq 201
+  res.body.meters: eq 0
+}
+

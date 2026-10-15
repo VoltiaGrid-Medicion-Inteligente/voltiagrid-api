@@ -1,0 +1,24 @@
+meta {
+  name: Internal reads any customer 200
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{consumptionUrl}}/customers/{{otherCustomerCode}}/consumption/daily?month=2013-02
+  body: none
+  auth: bearer
+}
+
+params:query {
+  month: 2013-02
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.customer_code: eq {{otherCustomerCode}}
+}

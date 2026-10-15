@@ -1,0 +1,19 @@
+meta {
+  name: Alerts as customer 403
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{controlCenterUrl}}/alerts/overload
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{customerToken}}
+}
+
+assert {
+  res.status: eq 403
+}

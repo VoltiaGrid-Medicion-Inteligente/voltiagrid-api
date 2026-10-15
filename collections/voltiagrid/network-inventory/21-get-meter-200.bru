@@ -1,0 +1,20 @@
+meta {
+  name: Get meter 200
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{inventoryUrl}}/meters/{{newMeterLclid}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.customer_code: eq {{newCustomerCode}}
+}

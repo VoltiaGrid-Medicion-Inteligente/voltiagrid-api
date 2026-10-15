@@ -1,0 +1,27 @@
+meta {
+  name: Duplicate customer 409
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{inventoryUrl}}/customers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{internalToken}}
+}
+
+body:json {
+  {
+    "code": "{{customerCode}}",
+    "acorn_group": "ACORN-A",
+    "acorn_grouped": "Affluent"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
