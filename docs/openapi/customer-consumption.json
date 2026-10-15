@@ -1,0 +1,427 @@
+{
+  "components": {
+    "schemas": {
+      "DailyBandConsumption": {
+        "properties": {
+          "band_name": {
+            "enum": [
+              "peak",
+              "intermediate",
+              "off-peak"
+            ],
+            "title": "Band Name",
+            "type": "string"
+          },
+          "cost": {
+            "description": "energy_kwh x band price (F7)",
+            "examples": [
+              "1.0236"
+            ],
+            "title": "Cost",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "energy_kwh": {
+            "examples": [
+              "3.412"
+            ],
+            "title": "Energy Kwh",
+            "type": "string"
+          },
+          "estimated_readings": {
+            "description": "how many of them were estimated (RN-03)",
+            "examples": [
+              0
+            ],
+            "title": "Estimated Readings",
+            "type": "integer"
+          },
+          "readings": {
+            "description": "30-minute readings in the band that day",
+            "examples": [
+              8
+            ],
+            "title": "Readings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "band_name",
+          "energy_kwh",
+          "cost",
+          "readings",
+          "estimated_readings"
+        ],
+        "title": "DailyBandConsumption",
+        "type": "object"
+      },
+      "DailyConsumptionResponse": {
+        "properties": {
+          "customer_code": {
+            "examples": [
+              "CU-MAC000002"
+            ],
+            "title": "Customer Code",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyBandConsumption"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "has_estimated_readings": {
+            "title": "Has Estimated Readings",
+            "type": "boolean"
+          },
+          "month": {
+            "examples": [
+              "2013-03"
+            ],
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_code",
+          "month",
+          "has_estimated_readings",
+          "days"
+        ],
+        "title": "DailyConsumptionResponse",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "The one error body every API returns.",
+        "properties": {
+          "detail": {
+            "examples": [
+              "Transformer 'TR-99999' not found"
+            ],
+            "title": "Detail",
+            "type": "string"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only on 422: one item per invalid field",
+            "title": "Errors"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FieldError": {
+        "properties": {
+          "field": {
+            "examples": [
+              "acorn_grouped"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "examples": [
+              "Input should be 'Affluent', 'Comfortable', 'Adversity' or 'Unknown'"
+            ],
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "Health",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
+    "title": "VoltiaGrid customer consumption API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/customers/{customer_code}/consumption/daily": {
+      "get": {
+        "operationId": "customer_daily_consumption_customers__customer_code__consumption_daily_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_code",
+            "required": true,
+            "schema": {
+              "examples": [
+                "CU-MAC000002"
+              ],
+              "title": "Customer Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Month as YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "Month as YYYY-MM",
+              "examples": [
+                "2013-03"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyConsumptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Daily consumption per band of one customer (internal users, or the customer itself)",
+        "tags": [
+          "consumption"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/me/consumption/daily": {
+      "get": {
+        "operationId": "my_daily_consumption_me_consumption_daily_get",
+        "parameters": [
+          {
+            "description": "Month as YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "Month as YYYY-MM",
+              "examples": [
+                "2013-03"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyConsumptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Daily consumption per band of the authenticated customer",
+        "tags": [
+          "consumption"
+        ]
+      }
+    }
+  }
+}
