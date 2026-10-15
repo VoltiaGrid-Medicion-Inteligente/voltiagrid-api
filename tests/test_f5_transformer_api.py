@@ -1,4 +1,5 @@
-"""US-15 (T-15.1): F5 delivers energy every 15 minutes equal to the sum of the transformer's meters."""
+"""US-15 (T-15.1, T-15.2): F5 delivers energy every 15 minutes equal to the sum of the transformer's
+meters, and an injected loss changes it only for that transformer and period."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -9,7 +10,8 @@ from seed.defects import DefectCatalog
 from simulators.common.consumption import half_hour_kwh, quarter_hour_kwh
 from simulators.common.inventory import Inventory
 from simulators.concentrator.generator import ConcentratorSimulator
-from simulators.transformer_api.main import app, get_inventory, get_seed
+from simulators.transformer_api.losses import LossStore
+from simulators.transformer_api.main import app, get_inventory, get_loss_store, get_seed
 
 START = datetime(2013, 1, 1, tzinfo=UTC)
 INVENTORY = Inventory({
@@ -20,7 +22,9 @@ INVENTORY = Inventory({
 
 @pytest.fixture
 def client():
+    store = LossStore()
     app.dependency_overrides[get_inventory] = lambda: INVENTORY
+    app.dependency_overrides[get_loss_store] = lambda: store
     app.dependency_overrides[get_seed] = lambda: 42
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -79,3 +83,55 @@ def test_list_transformers(client):
         {"transformer_code": "TR-00001", "meters": 60},
         {"transformer_code": "TR-00002", "meters": 70},
     ]
+
+
+# ---------- loss injection (T-15.2) ----------
+
+def inject(client, code="TR-00001", hours=6, loss_pct=0.2, start=START):
+    r = client.post("/losses", json={"transformer_code": code, "start": start.isoformat(),
+                                     "end": (start + timedelta(hours=hours)).isoformat(), "loss_pct": loss_pct})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def test_loss_changes_delivered_energy_only_in_its_period(client):
+    inject(client, hours=6, loss_pct=0.2)
+    rows = energy(client, hours=12)
+    inside, outside = rows[:24], rows[24:]
+    for row in inside:
+        ts = datetime.fromisoformat(row["interval_start"])
+        assert row["delivered_kwh"] > metered("TR-00001", ts)
+    for row in outside:
+        ts = datetime.fromisoformat(row["interval_start"])
+        assert row["delivered_kwh"] == pytest.approx(metered("TR-00001", ts), abs=1e-3)
+
+
+def test_loss_on_one_transformer_does_not_touch_the_others(client):
+    inject(client, code="TR-00001", hours=1)
+    for row in energy(client, code="TR-00002"):
+        ts = datetime.fromisoformat(row["interval_start"])
+        assert row["delivered_kwh"] == pytest.approx(metered("TR-00002", ts), abs=1e-3)
+
+
+def test_list_and_delete_losses(client):
+    created = inject(client, code="TR-00002", hours=72)
+    assert [i["id"] for i in client.get("/losses").json()] == [created["id"]]
+    assert client.delete(f"/losses/{created['id']}").status_code == 204
+    assert client.get("/losses").json() == []
+    assert client.delete(f"/losses/{created['id']}").status_code == 404
+
+
+@pytest.mark.parametrize("body", [
+    {"transformer_code": "TR-00001", "start": "2013-01-02T00:00:00Z", "end": "2013-01-01T00:00:00Z", "loss_pct": 0.1},
+    {"transformer_code": "TR-00001", "start": "2013-01-01T00:00:00Z", "end": "2013-01-02T00:00:00Z", "loss_pct": 0},
+    {"transformer_code": "TR-00001", "start": "2013-01-01T00:00:00Z", "end": "2013-01-02T00:00:00Z", "loss_pct": 1.5},
+    {"transformer_code": "TR-00001", "start": "2013-01-01T00:00:00", "end": "2013-01-02T00:00:00Z", "loss_pct": 0.1},
+])
+def test_invalid_loss_returns_422(client, body):
+    assert client.post("/losses", json=body).status_code == 422
+
+
+def test_loss_for_unknown_transformer_returns_404(client):
+    r = client.post("/losses", json={"transformer_code": "TR-99999", "start": "2013-01-01T00:00:00Z",
+                                     "end": "2013-01-02T00:00:00Z", "loss_pct": 0.1})
+    assert r.status_code == 404

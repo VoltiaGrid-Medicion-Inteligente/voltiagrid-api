@@ -7,7 +7,7 @@ so their numbers agree with each other.
 | Source | Package | What it does | Story |
 |---|---|---|---|
 | F3 | `simulators/concentrator` | Every 30 minutes, one JSON message per concentrator (one per transformer) with the readings of its meters, published to RabbitMQ | US-11 |
-| F5 | `simulators/transformer_api` | REST API with the energy delivered to each transformer every 15 minutes | US-15 |
+| F5 | `simulators/transformer_api` | REST API with the energy delivered to each transformer every 15 minutes, with loss injection | US-15 |
 
 ## Before running
 
@@ -49,6 +49,10 @@ python -m uvicorn simulators.transformer_api.main:app --port 8005
 | GET | `/health` | Health check |
 | GET | `/transformers` | Transformer codes and how many meters each one feeds |
 | GET | `/transformers/{code}/energy?start=...&end=...` | Delivered kWh every 15 minutes (range of 7 days or less, dates with time zone) |
+| POST | `/losses` | Inject a loss: `{"transformer_code": "TR-00001", "start": "...", "end": "...", "loss_pct": 0.15}` |
+| GET | `/losses` | Active injections |
+| DELETE | `/losses/{id}` | Remove an injection |
 
-- delivered = sum of the transformer's meters. It equals what F3 sends for the same meters and seed.
+- delivered = sum of the transformer's meters x (1 + injected loss). Without losses it equals what F3 sends for the same meters and seed.
+- Injections live in memory: restarting the API clears them (one worker on purpose).
 - Without a database: `SIM_SYNTHETIC_METERS=5500 python -m uvicorn simulators.transformer_api.main:app --port 8005`
