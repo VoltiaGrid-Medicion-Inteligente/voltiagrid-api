@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.common import ErrorResponse, HealthResponse, Principal, get_principal
@@ -42,8 +42,6 @@ def get_my_daily(
             DailyItem(date=f"{month}-02", peak_kwh=4.9, offpeak_kwh=2.8, estimated=True),
         ],
     )
-
-from fastapi import HTTPException
 
 
 @app.get(
