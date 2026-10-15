@@ -1,8 +1,12 @@
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from typing import Annotated, Generic, TypeVar
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -39,4 +43,24 @@ def get_principal(
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-        
+
+
+_STATUS_TO_CODE = {401: "unauthorized", 403: "forbidden", 404: "not_found", 409: "conflict"}
+
+
+def add_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(HTTPException)
+    async def _http_handler(_: Request, exc: HTTPException) -> JSONResponse:
+        status_code = exc.status_code or 500
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": _STATUS_TO_CODE.get(status_code, "error"), "message": detail},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={"code": "validation_error", "message": str(exc.errors())},
+        )

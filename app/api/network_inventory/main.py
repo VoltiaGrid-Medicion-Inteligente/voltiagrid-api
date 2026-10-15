@@ -1,11 +1,21 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api.common import ErrorResponse, HealthResponse, Page, Principal, get_principal
+from app.api.common import (
+    ErrorResponse,
+    HealthResponse,
+    Page,
+    Principal,
+    add_error_handlers,
+    get_principal,
+)
 
 app = FastAPI(title="Network inventory")
+add_error_handlers(app)
+
+AcornGrouped = Literal["Affluent", "Comfortable", "Adversity", "Unknown"]
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -14,23 +24,26 @@ def health() -> HealthResponse:
 
 class CustomerCreate(BaseModel):
     code: str
-    name: str
+    acorn_group: str
+    acorn_grouped: AcornGrouped
 
 class Customer(BaseModel):
     code: str
-    name: str
+    acorn_group: str
+    acorn_grouped: AcornGrouped
 
 class Meter(BaseModel):
-    code: str
+    lclid: str
     customer_code: str
     transformer_code: str
 
 class Transformer(BaseModel):
     code: str
+    circuit_code: str
     capacity_kva: float
 
 _DB_CUSTOMERS: dict[str, Customer] = {
-    "MAC000002": Customer(code="MAC000002", name="Demo"),
+    "MAC000002": Customer(code="MAC000002", acorn_group="ACORN-E", acorn_grouped="Affluent"),
 }
 
 
@@ -52,7 +65,7 @@ def create_customer(
     _require_internal(principal)
     if body.code in _DB_CUSTOMERS:
         raise HTTPException(status_code=409, detail="Customer exists")
-    cust = Customer(code=body.code, name=body.name)
+    cust = Customer(code=body.code, acorn_group=body.acorn_group, acorn_grouped=body.acorn_grouped)
     _DB_CUSTOMERS[body.code] = cust
     return cust
 
@@ -73,14 +86,14 @@ def get_customer(
 
 
 _METERS = [
-    Meter(code="M-001", customer_code="MAC000002", transformer_code="TR-00001"),
-    Meter(code="M-002", customer_code="MAC000003", transformer_code="TR-00001"),
-    Meter(code="M-003", customer_code="MAC000004", transformer_code="TR-00002"),
+    Meter(lclid="MAC000002", customer_code="MAC000002", transformer_code="TR-00001"),
+    Meter(lclid="MAC000003", customer_code="MAC000003", transformer_code="TR-00001"),
+    Meter(lclid="MAC000004", customer_code="MAC000004", transformer_code="TR-00002"),
 ]
 
 _TRANSFORMERS = [
-    Transformer(code="TR-00001", capacity_kva=100.0),
-    Transformer(code="TR-00002", capacity_kva=50.0),
+    Transformer(code="TR-00001", circuit_code="CIR-001", capacity_kva=100.0),
+    Transformer(code="TR-00002", circuit_code="CIR-001", capacity_kva=50.0),
 ]
 
 
@@ -90,10 +103,10 @@ _TRANSFORMERS = [
     responses={401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}},
 )
 def list_meters(
+    principal: Annotated[Principal, Depends(get_principal)],
     transformer_code: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    principal: Annotated[Principal, Depends(get_principal)] = None,  # type: ignore
+    offset: Annotated[int, Query(ge=0)] = 0, 
 ) -> Page[Meter]:
     _require_internal(principal)
     items = _METERS

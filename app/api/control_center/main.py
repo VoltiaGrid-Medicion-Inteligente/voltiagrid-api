@@ -1,11 +1,18 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api.common import ErrorResponse, HealthResponse, Principal, get_principal
+from app.api.common import (
+    ErrorResponse,
+    HealthResponse,
+    Principal,
+    add_error_handlers,
+    get_principal,
+)
 
 app = FastAPI(title="Control center")
+add_error_handlers(app)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -13,13 +20,14 @@ def health() -> HealthResponse:
     return HealthResponse()
 
 
-
 class LoadPoint(BaseModel):
     timestamp: str
     load_kw: float
+    utilization_pct: float = 0.0
 
 class TransformerLoadResponse(BaseModel):
     transformer_code: str
+    capacity_kva: float
     points: list[LoadPoint]
 
 class OverloadAlert(BaseModel):
@@ -27,24 +35,29 @@ class OverloadAlert(BaseModel):
     load_kw: float
     capacity_kva: float
 
+_KNOWN = {"TR-00001": 100.0, "TR-00002": 50.0}
+
 @app.get(
     "/transformers/{transformer_code}/load",
     response_model=TransformerLoadResponse,
-    responses={401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}},
+    responses={401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
 def get_load(
     transformer_code: str,
     principal: Annotated[Principal, Depends(get_principal)],
+    start: Annotated[str | None, Query()] = None,
+    end: Annotated[str | None, Query()] = None,
 ) -> TransformerLoadResponse:
     if principal.kind != "internal":
         raise HTTPException(status_code=403, detail="Only internal can view loads")
-    return TransformerLoadResponse(
-        transformer_code=transformer_code,
-        points=[
-            LoadPoint(timestamp="2013-02-01T00:00:00Z", load_kw=120.5),
-            LoadPoint(timestamp="2013-02-01T00:30:00Z", load_kw=118.2),
-        ],
-    )
+    if transformer_code not in _KNOWN:
+        raise HTTPException(status_code=404, detail="Transformer not found")
+    cap = _KNOWN[transformer_code]
+    pts = [
+        LoadPoint(timestamp="2013-02-01T00:00:00Z", load_kw=120.5, utilization_pct=round(120.5 / cap * 100, 1)),
+        LoadPoint(timestamp="2013-02-01T00:30:00Z", load_kw=118.2, utilization_pct=round(118.2 / cap * 100, 1)),
+    ]
+    return TransformerLoadResponse(transformer_code=transformer_code, capacity_kva=cap, points=pts)
 
 @app.get(
     "/alerts/overload",
