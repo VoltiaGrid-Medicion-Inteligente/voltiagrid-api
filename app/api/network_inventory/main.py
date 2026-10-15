@@ -1,9 +1,9 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api.common import ErrorResponse, HealthResponse, Principal, get_principal
+from app.api.common import ErrorResponse, HealthResponse, Page, Principal, get_principal
 
 app = FastAPI(title="Network inventory")
 
@@ -71,9 +71,6 @@ def get_customer(
         raise HTTPException(status_code=404, detail="Not found")
     return _DB_CUSTOMERS[code]
 
-from fastapi import Query
-
-from app.api.common import Page
 
 _METERS = [
     Meter(code="M-001", customer_code="MAC000002", transformer_code="TR-00001"),
