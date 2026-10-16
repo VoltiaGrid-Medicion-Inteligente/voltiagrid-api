@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field
 
 from app.api.common import AUTH_ERRORS, NOT_FOUND, Health, Principal, get_principal
 
+from app.api.customer_consumption.security import get_current_user_jwt
+from app.api.customer_consumption.service import get_real_calculation
+
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 app = FastAPI(
@@ -60,8 +63,8 @@ def _example_days(month: str) -> list[DailyBandConsumption]:
     return days
 
 
-def _response(customer_code: str, month: str) -> DailyConsumptionResponse:
-    days = _example_days(month)
+def _response(customer_code: str, month: str, principal: Principal) -> DailyConsumptionResponse:
+    days = get_real_calculation(month, customer_code, principal)
     return DailyConsumptionResponse(
         customer_code=customer_code, month=month,
         has_estimated_readings=any(d.estimated_readings for d in days), days=days,
@@ -80,10 +83,10 @@ def health():
     tags=["consumption"],
     summary="Daily consumption per band of the authenticated customer",
 )
-def my_daily_consumption(month: MonthQuery, principal: Principal = Depends(get_principal)):
+def my_daily_consumption(month: MonthQuery, principal: Principal = Depends(get_current_user_jwt)): 
     if principal.role != "customer":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Use /customers/{customer_code}/consumption/daily")
-    return _response(principal.customer_code, month)
+    return _response(principal.customer_code, month, principal)
 
 
 @app.get(
@@ -91,14 +94,16 @@ def my_daily_consumption(month: MonthQuery, principal: Principal = Depends(get_p
     response_model=DailyConsumptionResponse,
     responses={**AUTH_ERRORS, **NOT_FOUND},
     tags=["consumption"],
-    summary="Daily consumption per band of one customer (internal users, or the customer itself)",
+    summary="Daily consumption per band of one customer",
 )
 def customer_daily_consumption(
     month: MonthQuery,
     customer_code: Annotated[str, Path(examples=["CU-MAC000002"])],
-    principal: Principal = Depends(get_principal),
+    principal: Principal = Depends(get_current_user_jwt), # Dependencia JWT real
 ):
-    # RN-11 / CA-10: a customer only reads their own data.
+    # The primary validation is now in the service layer (T-13.3),
+# but we are keeping the 'if' statement here as well, in case the team requires it for redundancy at the router level:
     if principal.role == "customer" and principal.customer_code != customer_code:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Customers can only read their own consumption")
-    return _response(customer_code, month)
+
+    return _response(customer_code, month, principal)
