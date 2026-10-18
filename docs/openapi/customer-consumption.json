@@ -178,6 +178,58 @@
         "title": "Health",
         "type": "object"
       },
+      "TokenRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "examples": [
+              "CU-MAC000002"
+            ],
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "TokenRequest",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "seconds",
+            "examples": [
+              3600
+            ],
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -221,7 +273,7 @@
     },
     "securitySchemes": {
       "HTTPBearer": {
-        "description": "Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`",
+        "description": "JWT from POST /auth/token of the customer consumption API",
         "scheme": "bearer",
         "type": "http"
       }
@@ -234,6 +286,57 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/auth/token": {
+      "post": {
+        "operationId": "login_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Wrong username or password"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a JWT for a customer or an internal user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/customers/{customer_code}/consumption/daily": {
       "get": {
         "operationId": "customer_daily_consumption_customers__customer_code__consumption_daily_get",

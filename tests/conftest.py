@@ -9,6 +9,12 @@ import os
 # Load .env for DATABASE_URL
 load_dotenv()
 
+# Test-only values so the API tests can issue and validate tokens (T-13.1).
+# They replace whatever .env says: tests never use the real secret.
+os.environ["JWT_SECRET"] = "test-only-secret-not-used-anywhere-else-0123456789"
+os.environ["DEMO_CUSTOMER_PASSWORD"] = "test-customer-password"
+os.environ["DEMO_INTERNAL_PASSWORD"] = "test-internal-password"
+
 
 @pytest.fixture(scope="session")
 def engine():

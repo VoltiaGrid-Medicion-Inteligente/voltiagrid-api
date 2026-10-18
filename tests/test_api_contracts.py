@@ -6,9 +6,10 @@ from fastapi.testclient import TestClient
 from app.api.control_center.main import app as control_center
 from app.api.customer_consumption.main import app as customer_consumption
 from app.api.network_inventory.main import app as network_inventory
+from app.core.security import issue_token
 
-CUSTOMER = {"Authorization": "Bearer stub-customer-CU-MAC000002"}
-INTERNAL = {"Authorization": "Bearer stub-internal"}
+CUSTOMER = {"Authorization": f"Bearer {issue_token('customer', customer_code='CU-MAC000002')}"}
+INTERNAL = {"Authorization": f"Bearer {issue_token('internal')}"}
 MONTH = {"month": "2013-02"}
 RANGE = {"start": "2013-03-04T00:00:00Z", "end": "2013-03-04T02:00:00Z"}
 

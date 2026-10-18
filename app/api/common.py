@@ -1,13 +1,11 @@
 """Shared pieces of the three API contracts (US-12, T-12.1).
 
-Stub authentication: until JWT is implemented (US-13, T-13.1) the APIs accept
-these bearer tokens so the contract and the test collection can be used today:
-
-    Authorization: Bearer stub-customer-CU-MAC000002   -> customer CU-MAC000002
-    Authorization: Bearer stub-internal                -> internal user (billing, control center)
-
-T-13.1 replaces `get_principal` with real JWT validation; the routes do not change.
+Authentication (US-13, T-13.1): every protected route needs
+`Authorization: Bearer <JWT>`. Get a token from `POST /auth/token` of the
+customer consumption API. The token says who the caller is (role and customer
+code); the routes never trust a customer code sent by the caller for that.
 """
+
 
 from dataclasses import dataclass
 from typing import Generic, Literal, TypeVar
@@ -16,9 +14,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from app.core.security import InvalidToken, decode_token
+
 T = TypeVar("T")
 
-bearer = HTTPBearer(auto_error=False, description="Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`")
+bearer = HTTPBearer(auto_error=False, description="JWT from POST /auth/token of the customer consumption API")
+
+
 
 
 class FieldError(BaseModel):
@@ -54,12 +56,15 @@ def get_principal(credentials: HTTPAuthorizationCredentials | None = Depends(bea
     """Who is calling. 401 when there is no token or it is not valid."""
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
-    token = credentials.credentials
-    if token == "stub-internal":
+    try:
+        claims = decode_token(credentials.credentials)
+    except InvalidToken as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
+    if claims["role"] == "internal":
         return Principal(role="internal")
-    if token.startswith("stub-customer-") and len(token) > len("stub-customer-"):
-        return Principal(role="customer", customer_code=token.removeprefix("stub-customer-"))
-    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    return Principal(role="customer", customer_code=claims["sub"])
+
+
 
 
 def require_internal(principal: Principal = Depends(get_principal)) -> Principal:

@@ -1,0 +1,29 @@
+meta {
+  name: Customer token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{consumptionUrl}}/auth/token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{customerCode}}",
+    "password": "{{customerPassword}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  bru.setVar("customerToken", res.getBody().access_token);
+  test("token type is bearer", function() {
+    expect(res.getBody().token_type).to.equal("bearer");
+  });
+}
