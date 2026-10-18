@@ -1,14 +1,12 @@
-"""Customer daily consumption API: OpenAPI stub (US-12, T-12.1). Implemented in US-13.
+"""Customer daily consumption API (US-13).
 
     uvicorn app.api.customer_consumption.main:app --port 8001
     open http://localhost:8001/docs
 
-The routes, request parameters and response models are the contract. The data
-returned now is a fixed example; US-13 replaces `_example_days` with the real
-calculation without changing the contract.
+Daily consumption per tariff band of a customer for one month (RF-06), with
+the estimated-readings flag (RN-03). A customer only reads their own data (RN-11).
 """
 
-import calendar
 from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -18,18 +16,19 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import router as auth_router
 from app.api.common import AUTH_ERRORS, NOT_FOUND, Health, Principal, get_principal
-
+from app.api.customer_consumption.repository import ConsumptionRepository, get_repository
+from app.api.customer_consumption.service import daily_by_band
+from app.core.config import get_settings
+from app.core.tariffs import TariffCalendar, get_tariffs
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 app = FastAPI(
     title="VoltiaGrid customer consumption API",
-    version="0.1.0",
+    version="0.2.0",
     description="Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
 )
 app.include_router(auth_router)
-
-
 
 
 class DailyBandConsumption(BaseModel):
@@ -49,27 +48,20 @@ class DailyConsumptionResponse(BaseModel):
 
 
 MonthQuery = Annotated[str, Query(pattern=MONTH_PATTERN, description="Month as YYYY-MM", examples=["2013-03"])]
+Repository = Annotated[ConsumptionRepository, Depends(get_repository)]
+Tariffs = Annotated[TariffCalendar, Depends(get_tariffs)]
 
 
-def _example_days(month: str) -> list[DailyBandConsumption]:
-    year, mon = map(int, month.split("-"))
-    bands = [("off-peak", "4.100", "0.12", 20, 0), ("intermediate", "3.200", "0.18", 20, 1), ("peak", "2.500", "0.30", 8, 0)]
-    days = []
-    for day in range(1, calendar.monthrange(year, mon)[1] + 1):
-        for band, kwh, price, readings, estimated in bands:
-            days.append(DailyBandConsumption(
-                date=date(year, mon, day), band_name=band, energy_kwh=Decimal(kwh),
-                cost=(Decimal(kwh) * Decimal(price)).quantize(Decimal("0.0001")),
-                readings=readings, estimated_readings=estimated,
-            ))
-    return days
-
-
-def _response(customer_code: str, month: str) -> DailyConsumptionResponse:
-    days = _example_days(month)
+def _response(customer_code: str, month: str, repo: ConsumptionRepository, tariffs: TariffCalendar) -> DailyConsumptionResponse:
+    if not repo.customer_exists(customer_code):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Customer '{customer_code}' not found")
+    settings = get_settings()
+    rows = daily_by_band(repo.meter_ids(customer_code), month, tariffs, settings.model_seed, settings.defect_rate)
     return DailyConsumptionResponse(
-        customer_code=customer_code, month=month,
-        has_estimated_readings=any(d.estimated_readings for d in days), days=days,
+        customer_code=customer_code,
+        month=month,
+        has_estimated_readings=any(r["estimated_readings"] for r in rows),
+        days=[DailyBandConsumption(**r) for r in rows],
     )
 
 
@@ -81,14 +73,14 @@ def health():
 @app.get(
     "/me/consumption/daily",
     response_model=DailyConsumptionResponse,
-    responses=AUTH_ERRORS,
+    responses={**AUTH_ERRORS, **NOT_FOUND},
     tags=["consumption"],
     summary="Daily consumption per band of the authenticated customer",
 )
-def my_daily_consumption(month: MonthQuery, principal: Principal = Depends(get_principal)):
+def my_daily_consumption(month: MonthQuery, repo: Repository, tariffs: Tariffs, principal: Principal = Depends(get_principal)):
     if principal.role != "customer":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Use /customers/{customer_code}/consumption/daily")
-    return _response(principal.customer_code, month)
+    return _response(principal.customer_code, month, repo, tariffs)
 
 
 @app.get(
@@ -101,9 +93,11 @@ def my_daily_consumption(month: MonthQuery, principal: Principal = Depends(get_p
 def customer_daily_consumption(
     month: MonthQuery,
     customer_code: Annotated[str, Path(examples=["CU-MAC000002"])],
+    repo: Repository,
+    tariffs: Tariffs,
     principal: Principal = Depends(get_principal),
 ):
     # RN-11 / CA-10: a customer only reads their own data.
     if principal.role == "customer" and principal.customer_code != customer_code:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Customers can only read their own consumption")
-    return _response(customer_code, month)
+    return _response(customer_code, month, repo, tariffs)

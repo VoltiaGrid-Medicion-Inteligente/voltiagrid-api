@@ -282,7 +282,7 @@
   "info": {
     "description": "Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
     "title": "VoltiaGrid customer consumption API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -503,6 +503,16 @@
               }
             },
             "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
           },
           "422": {
             "content": {
