@@ -25,3 +25,14 @@ def test_temporary_failure_is_retried_and_the_file_lands_in_raw(tmp_path):
     stored = json.loads(path.read_text(encoding="utf-8"))
     assert stored["response"] == FORECAST
     assert stored["attempts"] == 2
+
+
+def test_heat_wave_mode_is_a_parameter(tmp_path):
+    forecast = {"hourly": {"time": ["2026-07-01T10:00", "2026-07-01T19:00"], "temperature_2m": [18.0, 21.0]}}
+    http = httpx.Client(base_url="https://api.open-meteo.com",
+                        transport=httpx.MockTransport(lambda req: httpx.Response(200, json=forecast)))
+    args = build_parser().parse_args(["--raw-dir", str(tmp_path), "--heat-wave"])
+    path = run(args, client=OpenMeteoClient(http=http, sleep=lambda s: None), now=datetime(2026, 7, 1, tzinfo=timezone.utc))
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["mode"] == "heat_wave"
+    assert stored["response"]["hourly"]["temperature_2m"] == [18.0, 32.0]
