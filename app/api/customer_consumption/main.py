@@ -4,7 +4,8 @@
     open http://localhost:8001/docs
 
 Daily consumption per tariff band of a customer for one month (RF-06), with
-the estimated-readings flag (RN-03). A customer only reads their own data (RN-11).
+the estimated-readings flag (RN-03). A customer only reads their own data (RN-11):
+the rule lives in `ConsumptionService`, the routers only translate its errors.
 """
 
 from datetime import date
@@ -16,10 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import router as auth_router
 from app.api.common import AUTH_ERRORS, NOT_FOUND, Health, Principal, get_principal
-from app.api.customer_consumption.repository import ConsumptionRepository, get_repository
-from app.api.customer_consumption.service import daily_by_band
-from app.core.config import get_settings
-from app.core.tariffs import TariffCalendar, get_tariffs
+from app.api.customer_consumption.service import AccessDenied, ConsumptionService, CustomerNotFound, get_service
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
@@ -48,21 +46,16 @@ class DailyConsumptionResponse(BaseModel):
 
 
 MonthQuery = Annotated[str, Query(pattern=MONTH_PATTERN, description="Month as YYYY-MM", examples=["2013-03"])]
-Repository = Annotated[ConsumptionRepository, Depends(get_repository)]
-Tariffs = Annotated[TariffCalendar, Depends(get_tariffs)]
+Service = Annotated[ConsumptionService, Depends(get_service)]
 
 
-def _response(customer_code: str, month: str, repo: ConsumptionRepository, tariffs: TariffCalendar) -> DailyConsumptionResponse:
-    if not repo.customer_exists(customer_code):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Customer '{customer_code}' not found")
-    settings = get_settings()
-    rows = daily_by_band(repo.meter_ids(customer_code), month, tariffs, settings.model_seed, settings.defect_rate)
-    return DailyConsumptionResponse(
-        customer_code=customer_code,
-        month=month,
-        has_estimated_readings=any(r["estimated_readings"] for r in rows),
-        days=[DailyBandConsumption(**r) for r in rows],
-    )
+def _daily(service: ConsumptionService, principal: Principal, customer_code: str, month: str) -> dict:
+    try:
+        return service.daily(principal, customer_code, month)
+    except AccessDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Customers can only read their own consumption") from exc
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Customer '{customer_code}' not found") from exc
 
 
 @app.get("/health", response_model=Health, tags=["health"])
@@ -77,10 +70,10 @@ def health():
     tags=["consumption"],
     summary="Daily consumption per band of the authenticated customer",
 )
-def my_daily_consumption(month: MonthQuery, repo: Repository, tariffs: Tariffs, principal: Principal = Depends(get_principal)):
+def my_daily_consumption(month: MonthQuery, service: Service, principal: Principal = Depends(get_principal)):
     if principal.role != "customer":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Use /customers/{customer_code}/consumption/daily")
-    return _response(principal.customer_code, month, repo, tariffs)
+    return _daily(service, principal, principal.customer_code, month)
 
 
 @app.get(
@@ -93,11 +86,7 @@ def my_daily_consumption(month: MonthQuery, repo: Repository, tariffs: Tariffs, 
 def customer_daily_consumption(
     month: MonthQuery,
     customer_code: Annotated[str, Path(examples=["CU-MAC000002"])],
-    repo: Repository,
-    tariffs: Tariffs,
+    service: Service,
     principal: Principal = Depends(get_principal),
 ):
-    # RN-11 / CA-10: a customer only reads their own data.
-    if principal.role == "customer" and principal.customer_code != customer_code:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Customers can only read their own consumption")
-    return _response(customer_code, month, repo, tariffs)
+    return _daily(service, principal, customer_code, month)

@@ -9,8 +9,13 @@ returns exactly what the pipeline will produce once it cleans F3:
 * the days a meter goes silent in F3 (missing-day defect, DEFECT_RATE) are the
   days RN-03 fills by profile, so all their readings count as estimated.
 
+
 When the clean layer exists, only `_meter_readings` changes; the response stays.
+
+Access rule (RN-11, CA-10, T-13.3): `ConsumptionService.daily` checks who is
+asking before reading anything, so no router, job or future endpoint can skip it.
 """
+
 
 import calendar
 from collections import defaultdict
@@ -18,11 +23,16 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
+from fastapi import Depends
+
 from seed.defects import should_skip_day
 from simulators.common.consumption import HALF_HOUR, half_hour_kwh
 from simulators.concentrator.generator import _rng
 
-from app.core.tariffs import BANDS, TariffCalendar
+from app.api.common import Principal
+from app.api.customer_consumption.repository import ConsumptionRepository, get_repository
+from app.core.config import get_settings
+from app.core.tariffs import BANDS, TariffCalendar, get_tariffs
 
 KWH = Decimal("0.001")
 MONEY = Decimal("0.0001")
@@ -90,3 +100,51 @@ def daily_by_band(
             "estimated_readings": t["estimated"],
         })
     return rows
+
+
+# ---------- access rule and service (T-13.3) ----------
+
+class AccessDenied(Exception):
+    """A customer asked for another customer's data."""
+
+
+class CustomerNotFound(Exception):
+    """The customer code is not in F4."""
+
+
+def can_read_consumption(principal: Principal, owner_code: str) -> bool:
+    """RN-11: internal users read any customer; a customer only reads their own data."""
+    if principal.role == "internal":
+        return True
+    return principal.role == "customer" and principal.customer_code == owner_code
+
+
+class ConsumptionService:
+    def __init__(self, repo: ConsumptionRepository, tariffs: TariffCalendar, seed: int, defect_rate: float):
+        self.repo = repo
+        self.tariffs = tariffs
+        self.seed = seed
+        self.defect_rate = defect_rate
+
+    def daily(self, principal: Principal, customer_code: str, month: str) -> dict:
+        # Checked before looking the customer up: a customer cannot even learn
+        # whether another customer code exists (403, never 404).
+        if not can_read_consumption(principal, customer_code):
+            raise AccessDenied(customer_code)
+        if not self.repo.customer_exists(customer_code):
+            raise CustomerNotFound(customer_code)
+        rows = daily_by_band(self.repo.meter_ids(customer_code), month, self.tariffs, self.seed, self.defect_rate)
+        return {
+            "customer_code": customer_code,
+            "month": month,
+            "has_estimated_readings": any(r["estimated_readings"] for r in rows),
+            "days": rows,
+        }
+
+
+def get_service(
+    repo: ConsumptionRepository = Depends(get_repository),
+    tariffs: TariffCalendar = Depends(get_tariffs),
+) -> ConsumptionService:
+    settings = get_settings()
+    return ConsumptionService(repo, tariffs, settings.model_seed, settings.defect_rate)
