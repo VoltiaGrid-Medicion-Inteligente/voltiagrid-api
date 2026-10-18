@@ -6,12 +6,15 @@ and reviewed like code.
 
 ## Environments
 
-| File | Use |
-|---|---|
-| `environments/local.bru` | APIs running on your machine (ports 8001, 8002, 8003) |
-| `environments/aws.bru` | APIs behind the ALB; replace `REPLACE-WITH-ALB-DNS` when the stack exists |
+| File                     | Use                                                                       |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `environments/local.bru` | APIs running on your machine (ports 8001, 8002, 8003)                     |
+| `environments/aws.bru`   | APIs behind the ALB; replace `REPLACE-WITH-ALB-DNS` when the stack exists |
 
-Tokens are never committed for AWS: they are secret variables you type in the Bruno app.
+The `00-auth` folder runs first: it logs in with `POST /auth/token` and stores
+`customerToken` and `internalToken` for the rest of the requests. The passwords are
+secret variables (`customerPassword`, `internalPassword`): they are never committed.
+Use the same values as `DEMO_CUSTOMER_PASSWORD` and `DEMO_INTERNAL_PASSWORD` in your `.env`.
 
 ## Run it
 
@@ -27,11 +30,12 @@ Tokens are never committed for AWS: they are secret variables you type in the Br
 
    ```bash
    cd collections/voltiagrid
-   npx --yes --package=@usebruno/cli@2.15.1 bru run --env local
+   npx --yes --package=@usebruno/cli@2.15.1 bru run --env local --env-var customerPassword=<DEMO_CUSTOMER_PASSWORD> --env-var internalPassword=<DEMO_INTERNAL_PASSWORD>
    ```
 
    Every request must pass. To explore it visually, open this folder in the Bruno app
-   (*Open Collection*) and pick the `local` environment.
+   (_Open Collection_), pick the `local` environment and type the two passwords in
+   its secret variables.
 
 ## Adding a request
 

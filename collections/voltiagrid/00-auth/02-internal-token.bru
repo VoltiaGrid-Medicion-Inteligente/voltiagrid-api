@@ -1,0 +1,26 @@
+meta {
+  name: Internal token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{consumptionUrl}}/auth/token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "internal",
+    "password": "{{internalPassword}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  bru.setVar("internalToken", res.getBody().access_token);
+}
