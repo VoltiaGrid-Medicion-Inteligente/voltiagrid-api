@@ -25,6 +25,13 @@ class Settings:
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = "voltiagrid"
     jwt_expire_minutes: int = 60
+    model_seed: int = 42
+    defect_rate: float = 0.02
+    tariffs_csv: str = "data/reference/tariffs.csv"
+
+    @property
+    def database_url(self) -> str:
+        return _required("DATABASE_URL")
 
     @property
     def jwt_secret(self) -> str:
@@ -41,4 +48,9 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings(jwt_expire_minutes=int(os.getenv("JWT_EXPIRE_MINUTES", "60")))
+    return Settings(
+        jwt_expire_minutes=int(os.getenv("JWT_EXPIRE_MINUTES") or "60"),
+        model_seed=int(os.getenv("SIM_SEED") or "42"),
+        defect_rate=float(os.getenv("DEFECT_RATE") or "0.02"),
+        tariffs_csv=os.getenv("TARIFFS_CSV") or "data/reference/tariffs.csv",
+    )

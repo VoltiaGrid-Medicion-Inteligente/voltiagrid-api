@@ -37,3 +37,20 @@ def session(engine):
     session.close()
     transaction.rollback()  # Limpia todo lo que hizo el test
     connection.close()
+
+@pytest.fixture
+def consumption_app():
+    """Customer consumption API without a database: every CU-MACxxxxxx exists and owns meter MACxxxxxx."""
+    from app.api.customer_consumption.main import app
+    from app.api.customer_consumption.repository import get_repository
+
+    class AnyMacCustomer:
+        def customer_exists(self, customer_code: str) -> bool:
+            return customer_code.startswith("CU-MAC")
+
+        def meter_ids(self, customer_code: str) -> list[str]:
+            return [customer_code.removeprefix("CU-")]
+
+    app.dependency_overrides[get_repository] = AnyMacCustomer
+    yield app
+    app.dependency_overrides.pop(get_repository, None)

@@ -14,9 +14,12 @@ MONTH = {"month": "2013-02"}
 RANGE = {"start": "2013-03-04T00:00:00Z", "end": "2013-03-04T02:00:00Z"}
 
 
+
 @pytest.fixture
-def cc():
-    return TestClient(customer_consumption)
+def cc(consumption_app):
+    return TestClient(consumption_app)
+
+
 
 
 @pytest.fixture
