@@ -637,7 +637,7 @@
     },
     "securitySchemes": {
       "HTTPBearer": {
-        "description": "Stub tokens until T-13.1: `stub-customer-<code>` or `stub-internal`",
+        "description": "JWT from POST /auth/token of the customer consumption API",
         "scheme": "bearer",
         "type": "http"
       }
