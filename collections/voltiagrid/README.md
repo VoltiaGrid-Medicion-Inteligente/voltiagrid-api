@@ -18,7 +18,10 @@ Use the same values as `DEMO_CUSTOMER_PASSWORD` and `DEMO_INTERNAL_PASSWORD` in 
 
 ## Run it
 
-1. Start the three APIs (one terminal each):
+1. Have Postgres up, migrated and seeded (`alembic upgrade head` and `python -m seed --mode dev`):
+   the consumption requests read customers `CU-MAC000002` and `CU-MAC000003` from F4.
+
+2. Start the three APIs (one terminal each):
 
    ```bash
    python -m uvicorn app.api.customer_consumption.main:app --port 8001
@@ -26,7 +29,7 @@ Use the same values as `DEMO_CUSTOMER_PASSWORD` and `DEMO_INTERNAL_PASSWORD` in 
    python -m uvicorn app.api.network_inventory.main:app --port 8003
    ```
 
-2. Run the whole collection from this folder (needs Node.js 18+):
+3. Run the whole collection from this folder (needs Node.js 18+):
 
    ```bash
    cd collections/voltiagrid
