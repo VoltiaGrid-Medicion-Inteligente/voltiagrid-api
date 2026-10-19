@@ -52,6 +52,23 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  api-customer-consumption:
+    build:
+      context: .
+      dockerfile: app/api/customer_consumption/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD}
+      DEMO_INTERNAL_PASSWORD: ${DEMO_INTERNAL_PASSWORD}
+      SIM_SEED: ${SIM_SEED:-42}
+      DEFECT_RATE: ${DEFECT_RATE:-0.02}
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
