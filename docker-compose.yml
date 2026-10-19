@@ -1,3 +1,8 @@
+# Local ecosystem (US-14). One command: `make up` (or `docker compose up -d --build`).
+# Every service joins the `voltia` network; data lives in named volumes and survives restarts.
+
+x-database-url: &database-url postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
 services:
   db:
     image: postgres:16
@@ -9,6 +14,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks: [voltia]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -25,19 +31,34 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
+    networks: [voltia]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
 
+  # One-shot job: migrations + seed. The services that read F4 wait until it finishes.
+  migrate-seed:
+    build:
+      context: .
+      dockerfile: seed/Dockerfile
+    environment:
+      DATABASE_URL: *database-url
+      MODE: ${MODE:-dev}
+      SEED: ${SEED:-42}
+      DEFECT_RATE: ${DEFECT_RATE:-0.02}
+    networks: [voltia]
+    depends_on:
+      db:
+        condition: service_healthy
+
   f3-simulator:
     build:
       context: .
       dockerfile: simulators/concentrator/Dockerfile
-    profiles: ["simulators"]
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: *database-url
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/%2F
       SIM_SEED: ${SIM_SEED:-42}
       SIM_METERS: ${SIM_METERS:-0}
@@ -46,18 +67,19 @@ services:
       SIM_OUTAGE_METERS: ${SIM_OUTAGE_METERS:-0}
       SIM_OUTAGE_HOURS: ${SIM_OUTAGE_HOURS:-24}
       DEFECT_RATE: ${DEFECT_RATE:-0.02}
+    networks: [voltia]
     depends_on:
-      db:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate-seed:
+        condition: service_completed_successfully
 
   api-customer-consumption:
     build:
       context: .
       dockerfile: app/api/customer_consumption/Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: *database-url
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
       DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD}
@@ -66,9 +88,28 @@ services:
       DEFECT_RATE: ${DEFECT_RATE:-0.02}
     ports:
       - "8001:8001"
+    networks: [voltia]
     depends_on:
-      db:
-        condition: service_healthy
+      migrate-seed:
+        condition: service_completed_successfully
+
+  api-network-inventory:
+    build:
+      context: .
+      dockerfile: app/api/network_inventory/Dockerfile
+    environment:
+      DATABASE_URL: *database-url
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8003:8003"
+    networks: [voltia]
+    depends_on:
+      migrate-seed:
+        condition: service_completed_successfully
+
+networks:
+  voltia:
+    name: voltia
 
 volumes:
   pgdata:
