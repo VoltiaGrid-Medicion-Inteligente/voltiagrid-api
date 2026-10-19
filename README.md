@@ -114,15 +114,15 @@ Reading order: **generate → ingest (RabbitMQ, persistent queues, manual ACK) �
 
 ## Data Sources
 
-| ID | Source | Type | Frequency |
-|---|---|---|---|
-| F1 | Smart meters in London (Kaggle), ~5,500 homes, ~167M readings | Real CSV | One-off history |
-| F2 | Historical weather from the same dataset | Real CSV | Historical, hourly |
-| F3 | Concentrator readings (JSON per meter batch) | Simulated stream | Every 30 min |
-| F4 | Network inventory: customers, meters, transformers, circuits, contracts | Simulated PostgreSQL (seed) | Daily |
-| F5 | Energy delivered per transformer (~100 in pilot) | Simulated REST API | Every 15 min |
-| F6 | Temperature forecast | Open-Meteo public API | Hourly |
-| F7 | Tariff calendar (peak/intermediate/off-peak, price per kWh) | Simulated CSV | Quarterly |
+| ID  | Source                                                                  | Type                        | Frequency          |
+| --- | ----------------------------------------------------------------------- | --------------------------- | ------------------ |
+| F1  | Smart meters in London (Kaggle), ~5,500 homes, ~167M readings           | Real CSV                    | One-off history    |
+| F2  | Historical weather from the same dataset                                | Real CSV                    | Historical, hourly |
+| F3  | Concentrator readings (JSON per meter batch)                            | Simulated stream            | Every 30 min       |
+| F4  | Network inventory: customers, meters, transformers, circuits, contracts | Simulated PostgreSQL (seed) | Daily              |
+| F5  | Energy delivered per transformer (~100 in pilot)                        | Simulated REST API          | Every 15 min       |
+| F6  | Temperature forecast                                                    | Open-Meteo public API       | Hourly             |
+| F7  | Tariff calendar (peak/intermediate/off-peak, price per kWh)             | Simulated CSV               | Quarterly          |
 
 Simulated sources come from a **seed**: fixed seed, idempotent, parameterizable volume (`dev`/`full`) and configurable defect rate. Full business rules (RN-01…RN-11) live in `voltiagrid-docs`; the seed currently implements inventory F4 (US-01).
 
@@ -156,66 +156,60 @@ Layered API (`routers → services → repositories → models/schemas`) so each
 
 ## Quick Start
 
-Goal (CT-01): an outsider runs the whole local stack in under 30 minutes.
+Goal (CT-01): an outsider runs the whole local stack in under 30 minutes. Full guide with
+prerequisites, URLs and troubleshooting: **[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)**.
 
 ```bash
-cp .env.example .env
-docker compose up -d
-alembic upgrade head
-python -m seed --mode dev --seed 42 --defect-rate 0
-python -m seed --mode dev --seed 42 --defect-rate 0  # 2nd run: 0 duplicates (idempotent)
-```
-
-Run tests (Docker recommended on Windows — `psycopg` may be blocked by Application Control):
-
-```bash
-docker run --rm --network host -v "<path>/voltiagrid-api:/app" -w /app python:3.12-slim bash -c "pip install -r requirements.txt -q && python -m pytest tests/ -v"
+make env     # creates .env from .env.example: replace every change-me value
+make up      # Postgres, RabbitMQ, migrations + seed, APIs and simulators
+make ps      # every service (healthy)
+make test    # test suite inside Docker (recommended on Windows)
 ```
 
 Seed parameters (`CLI > env > default`):
 
-| Variable | Purpose |
-|---|---|
-| `SEED` | Fixed seed for reproducible data (default `42`). |
-| `MODE` | `dev` (200 meters) or `full` (5,500 meters). |
-| `DEFECT_RATE` | 0–1 quality-defect injection rate. Use `0.0` for hash comparison. |
-| `DATABASE_URL` | Local PostgreSQL or RDS — same code, no changes. |
+| Variable       | Purpose                                                           |
+| -------------- | ----------------------------------------------------------------- |
+| `SEED`         | Fixed seed for reproducible data (default `42`).                  |
+| `MODE`         | `dev` (200 meters) or `full` (5,500 meters).                      |
+| `DEFECT_RATE`  | 0–1 quality-defect injection rate. Use `0.0` for hash comparison. |
+| `DATABASE_URL` | Local PostgreSQL or RDS — same code, no changes.                  |
 
 Never commit credentials or images with secrets (CT-02): use env vars; CI fails on secret detection.
 
 ## Testing
 
-| Test | What it verifies |
-|---|---|
-| `test_upsert_*` (7 tests) | `DO NOTHING` (circuit/transformer/customer/contract), `DO UPDATE` FKs (meter), FK integrity, per-entity idempotence, deterministic assignment, 50–80 meters per transformer |
-| `test_seed_reproducibility` (CT-06) | MD5 hash per table identical across 2 runs with same seed (`circuit`, `transformer`, `customer`, `contract`, `meter`) |
+| Test                                | What it verifies                                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_upsert_*` (7 tests)           | `DO NOTHING` (circuit/transformer/customer/contract), `DO UPDATE` FKs (meter), FK integrity, per-entity idempotence, deterministic assignment, 50–80 meters per transformer |
+| `test_seed_reproducibility` (CT-06) | MD5 hash per table identical across 2 runs with same seed (`circuit`, `transformer`, `customer`, `contract`, `meter`)                                                       |
 
 Determinism rules: isolated RNG (`random.Random(seed)`), sorted LCLids, deterministic codes (`TR-%05d`, `CT-%03d`, `CU-{LCLid}`), no `uuid4()`/`now()`/`created_at`, upsert by natural key (`ON CONFLICT`), tests with transaction + rollback.
 
 ## Team
 
-| Role | Responsibility | Member / GitHub |
-|---|---|---|
-| P1 — Backend & messaging | FastAPI, RabbitMQ, simulators, API | <!-- TODO: name + @github --> |
-| P2 — Data engineering | Spark, business rules, performance | <!-- TODO: name + @github --> |
-| P3 — Cloud & DevOps | Docker, AWS, Airflow, CI/CD, EKS | <!-- TODO: name + @github --> |
+| Role                          | Responsibility                                 | Member / GitHub               |
+| ----------------------------- | ---------------------------------------------- | ----------------------------- |
+| P1 — Backend & messaging      | FastAPI, RabbitMQ, simulators, API             | <!-- TODO: name + @github --> |
+| P2 — Data engineering         | Spark, business rules, performance             | <!-- TODO: name + @github --> |
+| P3 — Cloud & DevOps           | Docker, AWS, Airflow, CI/CD, EKS               | <!-- TODO: name + @github --> |
 | P4 — Architecture & analytics | Docs, ADRs, costs, dimensional model, Power BI | <!-- TODO: name + @github --> |
 
 Organization repos:
 
-| Repo | Content |
-|---|---|
-| `voltiagrid-api` | FastAPI, simulators, RabbitMQ consumers, seed (this repo) |
-| `voltiagrid-data` | Spark, Airflow DAGs, business rules |
-| `voltiagrid-analytics` | Dimensional model, Power BI |
-| `voltiagrid-docs` | Full architecture, ADRs, costs, runbook |
+| Repo                   | Content                                                   |
+| ---------------------- | --------------------------------------------------------- |
+| `voltiagrid-api`       | FastAPI, simulators, RabbitMQ consumers, seed (this repo) |
+| `voltiagrid-data`      | Spark, Airflow DAGs, business rules                       |
+| `voltiagrid-analytics` | Dimensional model, Power BI                               |
+| `voltiagrid-docs`      | Full architecture, ADRs, costs, runbook                   |
 
 ## Documentation
 
-| Language | Architecture detail | Technical study guide | ERD | Full spec |
-|---|---|---|---|---|
-| English | This README | — | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
-| Spanish | [README.es.md](README.es.md) | [README-TECNICO.md](README-TECNICO.md) | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
+| Language | Architecture detail          | Technical study guide                  | ERD                   | Full spec              |
+| -------- | ---------------------------- | -------------------------------------- | --------------------- | ---------------------- |
+| English  | This README                  | —                                      | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
+| Spanish  | [README.es.md](README.es.md) | [README-TECNICO.md](README-TECNICO.md) | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
 
 > Archived full spec (ES, pre-restructure): [docs/PROJECT-DETAIL.es.md](docs/PROJECT-DETAIL.es.md).
 

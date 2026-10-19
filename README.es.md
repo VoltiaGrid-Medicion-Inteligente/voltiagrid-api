@@ -114,15 +114,15 @@ Orden de lectura: **generar → ingerir (RabbitMQ, colas persistentes, ACK manua
 
 ## Fuentes de datos
 
-| ID | Fuente | Tipo | Frecuencia |
-|---|---|---|---|
-| F1 | Smart meters in London (Kaggle), ~5.500 hogares, ~167M lecturas | CSV real | Histórico único |
-| F2 | Clima histórico del mismo dataset | CSV real | Histórico, horario |
-| F3 | Lecturas de concentradores (JSON por lote de medidores) | Stream simulado | Cada 30 min |
-| F4 | Inventario de red: clientes, medidores, transformadores, circuitos, contratos | PostgreSQL simulada (seed) | Diaria |
-| F5 | Energía entregada por transformador (~100 en piloto) | API REST simulada | Cada 15 min |
-| F6 | Pronóstico de temperatura | API pública Open-Meteo | Horaria |
-| F7 | Calendario tarifario (punta, intermedia, valle, precio por kWh) | CSV simulado | Trimestral |
+| ID  | Fuente                                                                        | Tipo                       | Frecuencia         |
+| --- | ----------------------------------------------------------------------------- | -------------------------- | ------------------ |
+| F1  | Smart meters in London (Kaggle), ~5.500 hogares, ~167M lecturas               | CSV real                   | Histórico único    |
+| F2  | Clima histórico del mismo dataset                                             | CSV real                   | Histórico, horario |
+| F3  | Lecturas de concentradores (JSON por lote de medidores)                       | Stream simulado            | Cada 30 min        |
+| F4  | Inventario de red: clientes, medidores, transformadores, circuitos, contratos | PostgreSQL simulada (seed) | Diaria             |
+| F5  | Energía entregada por transformador (~100 en piloto)                          | API REST simulada          | Cada 15 min        |
+| F6  | Pronóstico de temperatura                                                     | API pública Open-Meteo     | Horaria            |
+| F7  | Calendario tarifario (punta, intermedia, valle, precio por kWh)               | CSV simulado               | Trimestral         |
 
 Lo simulado sale de un **seed**: semilla fija, idempotente, volumen parametrizable (`dev`/`full`) y tasa de defectos configurable. Las reglas de negocio completas (RN-01…RN-11) viven en `voltiagrid-docs`; el seed implementa hoy el inventario F4 (US-01).
 
@@ -156,66 +156,60 @@ API por capas (`routers → services → repositories → models/schemas`) para 
 
 ## Inicio Rápido
 
-Objetivo (CT-01): una persona externa levanta todo el stack local en menos de 30 minutos.
+Objetivo (CT-01): una persona externa levanta todo el stack local en menos de 30 minutos. Guía completa con
+requisitos, URLs y solución de problemas: **[docs/GETTING-STARTED.es.md](docs/GETTING-STARTED.es.md)**.
 
 ```bash
-cp .env.example .env
-docker compose up -d
-alembic upgrade head
-python -m seed --mode dev --seed 42 --defect-rate 0
-python -m seed --mode dev --seed 42 --defect-rate 0  # 2da corrida: 0 duplicados (idempotente)
-```
-
-Tests (Docker recomendado en Windows — `psycopg` puede ser bloqueado por Application Control):
-
-```bash
-docker run --rm --network host -v "<ruta>/voltiagrid-api:/app" -w /app python:3.12-slim bash -c "pip install -r requirements.txt -q && python -m pytest tests/ -v"
+make env     # crea .env a partir de .env.example: cambia todos los change-me
+make up      # Postgres, RabbitMQ, migraciones + seed, APIs y simuladores
+make ps      # todos los servicios (healthy)
+make test    # pruebas dentro de Docker (recomendado en Windows)
 ```
 
 Parámetros del seed (`CLI > env > default`):
 
-| Variable | Qué hace |
-|---|---|
-| `SEED` | Semilla fija para datos reproducibles (default `42`). |
-| `MODE` | `dev` (200 medidores) o `full` (5.500 medidores). |
-| `DEFECT_RATE` | Tasa 0–1 de defectos inyectados. Usa `0.0` para comparar hashes. |
-| `DATABASE_URL` | PostgreSQL local o RDS — mismo código, sin cambios. |
+| Variable       | Qué hace                                                         |
+| -------------- | ---------------------------------------------------------------- |
+| `SEED`         | Semilla fija para datos reproducibles (default `42`).            |
+| `MODE`         | `dev` (200 medidores) o `full` (5.500 medidores).                |
+| `DEFECT_RATE`  | Tasa 0–1 de defectos inyectados. Usa `0.0` para comparar hashes. |
+| `DATABASE_URL` | PostgreSQL local o RDS — mismo código, sin cambios.              |
 
 Ninguna credencial va en el repo ni en las imágenes (CT-02): usa variables de entorno; el CI falla si detecta secretos.
 
 ## Testing
 
-| Test | Qué verifica |
-|---|---|
-| `test_upsert_*` (7 tests) | `DO NOTHING` (circuit/transformer/customer/contract), `DO UPDATE` de FKs (meter), integridad FK, idempotencia por entidad, asignación determinista, 50–80 medidores por transformador |
-| `test_seed_reproducibility` (CT-06) | Hash MD5 por tabla idéntico en 2 corridas con misma semilla (`circuit`, `transformer`, `customer`, `contract`, `meter`) |
+| Test                                | Qué verifica                                                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_upsert_*` (7 tests)           | `DO NOTHING` (circuit/transformer/customer/contract), `DO UPDATE` de FKs (meter), integridad FK, idempotencia por entidad, asignación determinista, 50–80 medidores por transformador |
+| `test_seed_reproducibility` (CT-06) | Hash MD5 por tabla idéntico en 2 corridas con misma semilla (`circuit`, `transformer`, `customer`, `contract`, `meter`)                                                               |
 
 Reglas de determinismo: RNG aislado (`random.Random(seed)`), LCLids ordenados, códigos deterministas (`TR-%05d`, `CT-%03d`, `CU-{LCLid}`), sin `uuid4()`/`now()`/`created_at`, upsert por clave natural (`ON CONFLICT`), tests con transacción + rollback.
 
 ## Equipo
 
-| Rol | Responsabilidad | Integrante / GitHub |
-|---|---|---|
-| P1 — Backend y mensajería | FastAPI, RabbitMQ, simuladores, API | <!-- TODO: nombre + @github --> |
-| P2 — Ingeniería de datos | Spark, reglas de negocio, rendimiento | <!-- TODO: nombre + @github --> |
-| P3 — Cloud y DevOps | Docker, AWS, Airflow, CI/CD, EKS | <!-- TODO: nombre + @github --> |
+| Rol                           | Responsabilidad                                  | Integrante / GitHub             |
+| ----------------------------- | ------------------------------------------------ | ------------------------------- |
+| P1 — Backend y mensajería     | FastAPI, RabbitMQ, simuladores, API              | <!-- TODO: nombre + @github --> |
+| P2 — Ingeniería de datos      | Spark, reglas de negocio, rendimiento            | <!-- TODO: nombre + @github --> |
+| P3 — Cloud y DevOps           | Docker, AWS, Airflow, CI/CD, EKS                 | <!-- TODO: nombre + @github --> |
 | P4 — Arquitectura y analítica | Docs, ADRs, costos, modelo dimensional, Power BI | <!-- TODO: nombre + @github --> |
 
 Repos de la organización:
 
-| Repo | Contenido |
-|---|---|
-| `voltiagrid-api` | FastAPI, simuladores, consumidores RabbitMQ, seed (este repo) |
-| `voltiagrid-data` | Spark, DAGs de Airflow, reglas de negocio |
-| `voltiagrid-analytics` | Modelo dimensional, Power BI |
-| `voltiagrid-docs` | Arquitectura completa, ADRs, costos, runbook |
+| Repo                   | Contenido                                                     |
+| ---------------------- | ------------------------------------------------------------- |
+| `voltiagrid-api`       | FastAPI, simuladores, consumidores RabbitMQ, seed (este repo) |
+| `voltiagrid-data`      | Spark, DAGs de Airflow, reglas de negocio                     |
+| `voltiagrid-analytics` | Modelo dimensional, Power BI                                  |
+| `voltiagrid-docs`      | Arquitectura completa, ADRs, costos, runbook                  |
 
 ## Documentación
 
-| Idioma | Detalle arquitectura | Guía técnica de estudio | ERD | Spec completa |
-|---|---|---|---|---|
-| Español | Este README | [README-TECNICO.md](README-TECNICO.md) | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
-| Inglés | [README.md](README.md) | — | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
+| Idioma  | Detalle arquitectura   | Guía técnica de estudio                | ERD                   | Spec completa          |
+| ------- | ---------------------- | -------------------------------------- | --------------------- | ---------------------- |
+| Español | Este README            | [README-TECNICO.md](README-TECNICO.md) | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
+| Inglés  | [README.md](README.md) | —                                      | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
 
 > Detalle completo archivado (ES, pre-reestructuración): [docs/PROJECT-DETAIL.es.md](docs/PROJECT-DETAIL.es.md).
 
