@@ -1,7 +1,16 @@
 # Local ecosystem (US-14). One command: `make up` (or `docker compose up -d --build`).
 # Every service joins the `voltia` network; data lives in named volumes and survives restarts.
+# Startup order (T-14.2): db and rabbitmq healthy -> migrate-seed finished -> APIs and simulator.
+# Every long-running service has a healthcheck: `docker compose ps` shows (healthy) when it is ready.
 
 x-database-url: &database-url postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
+# Same check for every API: GET /health must answer within 2 seconds.
+x-api-healthcheck: &api-healthcheck
+  interval: 10s
+  timeout: 3s
+  start_period: 15s
+  retries: 5
 
 services:
   db:
@@ -15,6 +24,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [voltia]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -32,6 +42,7 @@ services:
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
     networks: [voltia]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -49,6 +60,7 @@ services:
       SEED: ${SEED:-42}
       DEFECT_RATE: ${DEFECT_RATE:-0.02}
     networks: [voltia]
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +80,20 @@ services:
       SIM_OUTAGE_HOURS: ${SIM_OUTAGE_HOURS:-24}
       DEFECT_RATE: ${DEFECT_RATE:-0.02}
     networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      # The simulator has no HTTP port: healthy = it can reach the broker it publishes to.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; socket.create_connection(('rabbitmq', 5672), 2)",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -89,7 +115,19 @@ services:
     ports:
       - "8001:8001"
     networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      <<: *api-healthcheck
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2)",
+        ]
     depends_on:
+      db:
+        condition: service_healthy
       migrate-seed:
         condition: service_completed_successfully
 
@@ -103,7 +141,19 @@ services:
     ports:
       - "8003:8003"
     networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      <<: *api-healthcheck
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)",
+        ]
     depends_on:
+      db:
+        condition: service_healthy
       migrate-seed:
         condition: service_completed_successfully
 
