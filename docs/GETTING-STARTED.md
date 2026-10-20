@@ -31,6 +31,11 @@ make env
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
+> Heads-up (KAN-185): the Postgres password appears on **two lines** — `POSTGRES_PASSWORD` and inside
+> `DATABASE_URL` (between `voltia:` and `@localhost`) — and must be **the same** on both. Same for
+> `RABBITMQ_DEFAULT_PASS` and the one inside `RABBITMQ_URL`. If they do not match, `make up` fails with
+> `password authentication failed` in `migrate-seed`.
+
 `.env` is git-ignored: never commit it and never paste its values in issues or chats.
 
 ## 3. Start everything
@@ -41,7 +46,8 @@ make up
 
 It builds the images, starts Postgres and RabbitMQ, runs the migrations and the seed (`migrate-seed`),
 then starts the APIs and the F3 simulator, and waits until every API answers `/health`.
-The first run downloads images and takes a few minutes; later runs take seconds.
+The first run downloads images and builds the project images: depending on your connection and machine
+this can take **5 to 30 minutes**; later runs take seconds (cached).
 
 Check: `make ps` shows every service `(healthy)` and `migrate-seed` as `Exited (0)`.
 
