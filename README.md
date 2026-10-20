@@ -1,10 +1,6 @@
 <h1 align="center">VoltaGrid — Smart Metering</h1>
 
 <p align="center">
-  <a href="README.es.md">🇪🇸 Español</a> | <a href="README.md">🇺🇸 English</a>
-</p>
-
-<p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"></a>
   <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white"></a>
@@ -143,13 +139,11 @@ voltiagrid-api/
 ├── tests/              # upsert + reproducibility (CT-06) tests
 ├── docs/
 │   ├── CONTRIBUTING.md      # branch strategy, commits, PR workflow (EN)
-│   ├── CONTRIBUTING.es.md   # same content in Spanish
 │   └── erd.md               # F4 entity-relationship diagram
 ├── docker-compose.yml
 ├── Dockerfile
 ├── .env.example        # example env vars, no secrets
 ├── README.md           # this file (English)
-└── README.es.md        # Spanish version
 ```
 
 Layered API (`routers → services → repositories → models/schemas`) so each layer is testable by a different teammate.
@@ -206,15 +200,12 @@ Organization repos:
 
 ## Documentation
 
-| Language | Architecture detail          | Technical study guide                  | ERD                   | Full spec              |
-| -------- | ---------------------------- | -------------------------------------- | --------------------- | ---------------------- |
-| English  | This README                  | —                                      | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
-| Spanish  | [README.es.md](README.es.md) | [README-TECNICO.md](README-TECNICO.md) | [erd.md](docs/erd.md) | `voltiagrid-docs` (P4) |
-
-> Archived full spec (ES, pre-restructure): [docs/PROJECT-DETAIL.es.md](docs/PROJECT-DETAIL.es.md).
+| Topic | Where |
+| ----- | ----- |
+| Run the stack locally | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
+| F4 entity-relationship diagram | [docs/erd.md](docs/erd.md) |
+| Full architecture, ADRs, costs | `voltiagrid-docs` (P4) |
 
 ## Contributing
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for clone, branch strategy, commit conventions, and PR workflow (English).
-
-Ver [CONTRIBUTING.es.md](docs/CONTRIBUTING.es.md) para la guía en español.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for clone, branch strategy, commit conventions, and PR workflow.

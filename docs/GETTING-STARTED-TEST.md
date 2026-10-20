@@ -1,6 +1,6 @@
 # Timed test of the getting-started guide (US-14, T-14.5)
 
-Someone who did **not** build the environment follows [GETTING-STARTED.es.md](GETTING-STARTED.es.md) from scratch,
+Someone who did **not** build the environment follows [GETTING-STARTED.md](GETTING-STARTED.md) from scratch,
 on their own machine, timing each step. Goal: everything working in **less than 30 minutes** (CT-01).
 Every gap found is fixed in the guide (or in the code) in the same PR or a linked one.
 
@@ -48,8 +48,8 @@ The cold run's hours are reconstructed from a real response header captured duri
 
 | # | What blocked or confused the tester | Fix (file and change) | PR |
 |---|---|---|---|
-| 1 | The guide promises "a few minutes" for the first `make up`. Real cold-run breakdown: setup ~7–8 min, download+build ~23 min (~140 s per image + 1400 s of build), API testing ~2 min → **total > 30 min**, goal not met on the first boot. | GETTING-STARTED.es.md and GETTING-STARTED.md (step 3): set the expectation to "5 to 30 minutes the first time, depending on connection and machine; seconds afterwards". | This PR |
-| 2 | Nothing warns that the Postgres password must be the same on two lines (`POSTGRES_PASSWORD` and inside `DATABASE_URL`), and likewise `RABBITMQ_DEFAULT_PASS` vs the one inside `RABBITMQ_URL`. That mismatch made `migrate-seed` fail with `password authentication failed`. | GETTING-STARTED.es.md and GETTING-STARTED.md (step 2): add the matching-passwords warning. | This PR |
+| 1 | The guide promises "a few minutes" for the first `make up`. Real cold-run breakdown: setup ~7–8 min, download+build ~23 min (~140 s per image + 1400 s of build), API testing ~2 min → **total > 30 min**, goal not met on the first boot. | GETTING-STARTED.md and GETTING-STARTED.md (step 3): set the expectation to "5 to 30 minutes the first time, depending on connection and machine; seconds afterwards". | This PR |
+| 2 | Nothing warns that the Postgres password must be the same on two lines (`POSTGRES_PASSWORD` and inside `DATABASE_URL`), and likewise `RABBITMQ_DEFAULT_PASS` vs the one inside `RABBITMQ_URL`. That mismatch made `migrate-seed` fail with `password authentication failed`. | GETTING-STARTED.md and GETTING-STARTED.md (step 2): add the matching-passwords warning. | This PR |
 
 ## Note
 A first GET answered 401 because the tester skipped the Authorize button (human error; the guide does tell you to click Authorize, and the system is right to require the token).

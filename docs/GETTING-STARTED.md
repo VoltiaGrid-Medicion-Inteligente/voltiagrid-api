@@ -1,7 +1,6 @@
 # Getting started: the whole system on your machine
 
 Goal (CT-01): someone who did not build the environment has everything running in **less than 30 minutes**.
-[Versión en español](GETTING-STARTED.es.md).
 
 ## 1. Prerequisites (install once)
 
