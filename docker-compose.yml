@@ -141,6 +141,24 @@ services:
       migrate-seed:
         condition: service_completed_successfully
 
+  api-transformer-metering:
+    build:
+      context: .
+      dockerfile: simulators/transformer_api/Dockerfile
+    environment:
+      DATABASE_URL: *database-url
+      SIM_SEED: ${SIM_SEED:-42}
+    ports:
+      - "127.0.0.1:8005:8005"
+    networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      <<: *api-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]
+    depends_on:
+      migrate-seed:
+        condition: service_completed_successfully
+
 networks:
   voltia:
     name: voltia

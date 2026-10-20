@@ -15,6 +15,7 @@ import urllib.request
 SERVICES = {
     "api-customer-consumption": "http://localhost:8001/health",
     "api-network-inventory": "http://localhost:8003/health",
+    "api-transformer-metering": "http://localhost:8005/health",
 }
 
 

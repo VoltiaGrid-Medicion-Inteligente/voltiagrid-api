@@ -56,6 +56,7 @@ Check: `make ps` shows every service `(healthy)` and `migrate-seed` as `Exited (
 | ------------------------ | -------------------------- | --------------------------------------- |
 | Customer consumption API | http://localhost:8001/docs | `POST /auth/token` gives the JWT        |
 | Network inventory API    | http://localhost:8003/docs | internal users                          |
+| F5 transformer metering API | http://localhost:8005/docs | energy delivered every 15 min, loss injection |
 | RabbitMQ management      | http://localhost:15672     | user and password from `.env`           |
 | Postgres                 | `localhost:5433`           | database, user and password from `.env` |
 
@@ -82,7 +83,7 @@ Try it in the customer consumption `/docs`:
 | Symptom                                                                          | Cause and fix                                                                                                                                                                                                                      |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `failed to connect to the docker API` / `open //./pipe/dockerDesktopLinuxEngine` | Docker Desktop is not running. Start it and wait until it says _Engine running_.                                                                                                                                                   |
-| `Bind for 0.0.0.0:5433 failed: port is already allocated`                        | Another container or a local Postgres uses the port. `docker ps` to find it and stop it, or change the left side of the port in `docker-compose.yml`. Same for 5672, 15672, 8001, 8003.                                            |
+| `Bind for 0.0.0.0:5433 failed: port is already allocated`                        | Another container or a local Postgres uses the port. `docker ps` to find it and stop it, or change the left side of the port in `docker-compose.yml`. Same for 5672, 15672, 8001, 8003, 8005.                                            |
 | `make: command not found`                                                        | make is not installed or the terminal was open before installing it. `winget install ezwinports.make` and open a new terminal. Without make, run the commands of the table in `Makefile` by hand (`docker compose up -d --build`). |
 | `migrate-seed` exited with an error                                              | `make logs s=migrate-seed`. Usually a wrong value in `.env`; fix it and run `make seed`.                                                                                                                                           |
 | An API is `(unhealthy)` or `make up` says _Not ready_                            | `make logs s=<service>`. A missing `JWT_SECRET` or a wrong `DATABASE_URL` is the usual cause.                                                                                                                                      |
