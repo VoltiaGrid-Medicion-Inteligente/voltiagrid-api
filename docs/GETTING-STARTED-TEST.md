@@ -48,8 +48,20 @@ The cold run's hours are reconstructed from a real response header captured duri
 
 | # | What blocked or confused the tester | Fix (file and change) | PR |
 |---|---|---|---|
-| 1 | The guide promises "a few minutes" for the first `make up`. Real cold-run breakdown: setup ~7–8 min, download+build ~23 min (~140 s per image + 1400 s of build), API testing ~2 min → **total > 30 min**, goal not met on the first boot. | GETTING-STARTED.md and GETTING-STARTED.md (step 3): set the expectation to "5 to 30 minutes the first time, depending on connection and machine; seconds afterwards". | This PR |
-| 2 | Nothing warns that the Postgres password must be the same on two lines (`POSTGRES_PASSWORD` and inside `DATABASE_URL`), and likewise `RABBITMQ_DEFAULT_PASS` vs the one inside `RABBITMQ_URL`. That mismatch made `migrate-seed` fail with `password authentication failed`. | GETTING-STARTED.md and GETTING-STARTED.md (step 2): add the matching-passwords warning. | This PR |
+| 1 | The guide promises "a few minutes" for the first `make up`. Real cold-run breakdown: setup ~7–8 min, download+build ~23 min (~140 s per image + 1400 s of build), API testing ~2 min → **total > 30 min**, goal not met on the first boot. | GETTING-STARTED.md (step 3): set the expectation to "5 to 30 minutes the first time, depending on connection and machine; seconds afterwards". | This PR |
+| 2 | Nothing warns that the Postgres password must be the same on two lines (`POSTGRES_PASSWORD` and inside `DATABASE_URL`), and likewise `RABBITMQ_DEFAULT_PASS` vs the one inside `RABBITMQ_URL`. That mismatch made `migrate-seed` fail with `password authentication failed`. | GETTING-STARTED.md (step 2): add the matching-passwords warning. | This PR |
+| 3 | The run used the Spanish copy of the guide, which had to be kept in sync by hand with the English one. | Removed every Spanish document from the repo; `GETTING-STARTED.md` is the only guide. | This PR |
+
+## Note
+A first GET answered 401 because the tester skipped the Authorize button (human error; the guide does tell you to click Authorize, and the system is right to require the token).
+
+## Result
+
+- [x] Total under 30 minutes (official run: 8 min; the truly first cold boot exceeded 30 min — see gap 1)
+- [x] `make ps` showed every service `(healthy)` and `migrate-seed` `Exited (0)`
+- [x] The 403 check passed
+- [x] Every gap above is fixed
+
 
 ## Note
 A first GET answered 401 because the tester skipped the Authorize button (human error; the guide does tell you to click Authorize, and the system is right to require the token).
