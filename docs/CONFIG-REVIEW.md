@@ -27,6 +27,7 @@ Repeat this review whenever a service, a port or a variable is added.
 | 15672 | RabbitMQ management | 127.0.0.1 |
 | 8001 | api-customer-consumption | 127.0.0.1 |
 | 8003 | api-network-inventory | 127.0.0.1 |
+| 8005 | api-transformer-metering (F5) | 127.0.0.1 |
 
 ## Secret scan
 

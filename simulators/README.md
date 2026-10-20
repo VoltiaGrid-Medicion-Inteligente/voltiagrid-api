@@ -56,3 +56,4 @@ python -m uvicorn simulators.transformer_api.main:app --port 8005
 - delivered = sum of the transformer's meters x (1 + injected loss). Without losses it equals what F3 sends for the same meters and seed.
 - Injections live in memory: restarting the API clears them (one worker on purpose).
 - Without a database: `SIM_SYNTHETIC_METERS=5500 python -m uvicorn simulators.transformer_api.main:app --port 8005`
+- With Docker it is the `api-transformer-metering` service of `docker-compose.yml` (started by `make up`).
