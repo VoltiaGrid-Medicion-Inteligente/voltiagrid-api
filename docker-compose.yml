@@ -2,8 +2,10 @@
 # Every service joins the `voltia` network; data lives in named volumes and survives restarts.
 # Startup order (T-14.2): db and rabbitmq healthy -> migrate-seed finished -> APIs and simulator.
 # Every long-running service has a healthcheck: `docker compose ps` shows (healthy) when it is ready.
+# Configuration review (T-14.6): no value is written here, everything comes from .env; secrets use
+# ${VAR:?} so compose stops with a clear message if one is missing; ports listen only on 127.0.0.1.
 
-x-database-url: &database-url postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+x-database-url: &database-url postgresql+psycopg://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}
 
 # Same check for every API: GET /health must answer within 2 seconds.
 x-api-healthcheck: &api-healthcheck
@@ -16,11 +18,11 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [voltia]
@@ -34,11 +36,11 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
     networks: [voltia]
@@ -83,13 +85,7 @@ services:
     restart: unless-stopped
     healthcheck:
       # The simulator has no HTTP port: healthy = it can reach the broker it publishes to.
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import socket; socket.create_connection(('rabbitmq', 5672), 2)",
-        ]
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('rabbitmq', 5672), 2)"]
       interval: 15s
       timeout: 5s
       start_period: 15s
@@ -106,25 +102,19 @@ services:
       dockerfile: app/api/customer_consumption/Dockerfile
     environment:
       DATABASE_URL: *database-url
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
-      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD}
-      DEMO_INTERNAL_PASSWORD: ${DEMO_INTERNAL_PASSWORD}
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:?set DEMO_CUSTOMER_PASSWORD in .env}
+      DEMO_INTERNAL_PASSWORD: ${DEMO_INTERNAL_PASSWORD:?set DEMO_INTERNAL_PASSWORD in .env}
       SIM_SEED: ${SIM_SEED:-42}
       DEFECT_RATE: ${DEFECT_RATE:-0.02}
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     networks: [voltia]
     restart: unless-stopped
     healthcheck:
       <<: *api-healthcheck
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2)",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2)"]
     depends_on:
       db:
         condition: service_healthy
@@ -137,20 +127,14 @@ services:
       dockerfile: app/api/network_inventory/Dockerfile
     environment:
       DATABASE_URL: *database-url
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
     ports:
-      - "8003:8003"
+      - "127.0.0.1:8003:8003"
     networks: [voltia]
     restart: unless-stopped
     healthcheck:
       <<: *api-healthcheck
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)"]
     depends_on:
       db:
         condition: service_healthy
