@@ -1,7 +1,5 @@
 # Contributing Guidelines — VoltaGrid API
 
-> Language: [🇺🇸 English](CONTRIBUTING.md) | [🇪🇸 Español](CONTRIBUTING.es.md)
-
 This guide covers the full workflow: `git clone` → setup → branch → commit → PR → review → merge.
 It combines [Conventional Commits](https://www.conventionalcommits.org/) (like the CoDecide reference repo) with the team's **Jira (KAN)** workflow.
 
