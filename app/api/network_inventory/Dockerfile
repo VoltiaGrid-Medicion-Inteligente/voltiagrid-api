@@ -1,20 +1,30 @@
-# api-network-inventory (US-14, T-14.1)
+# api-network-inventory (US-14, T-14.1), built from docker/Dockerfile.template (T-16.1)
 # Build from the repo root:
-#   docker build -f app/api/network_inventory/Dockerfile -t voltiagrid-api-network-inventory .
-FROM python:3.12-slim
+#   docker build -f app/api/network_inventory/Dockerfile -t voltiagrid/api-network-inventory:local .
+
+# ---------- build stage ----------
+FROM python:3.12-slim AS build
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN python -m venv /opt/venv
+COPY requirements.txt /tmp/requirements.txt
+RUN /opt/venv/bin/pip install -r /tmp/requirements.txt
+
+# ---------- runtime stage ----------
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY app ./app
+    PATH="/opt/venv/bin:$PATH"
 
 RUN useradd --create-home --uid 10001 api
+COPY --from=build /opt/venv /opt/venv
+
+WORKDIR /app
+COPY app ./app
+
 USER api
 
 # Configuration from environment variables: DATABASE_URL, JWT_SECRET

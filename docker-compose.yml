@@ -53,6 +53,7 @@ services:
 
   # One-shot job: migrations + seed. The services that read F4 wait until it finishes.
   migrate-seed:
+    image: voltiagrid/migrate-seed:local
     build:
       context: .
       dockerfile: seed/Dockerfile
@@ -68,6 +69,7 @@ services:
         condition: service_healthy
 
   f3-simulator:
+    image: voltiagrid/f3-simulator:local
     build:
       context: .
       dockerfile: simulators/concentrator/Dockerfile
@@ -97,6 +99,7 @@ services:
         condition: service_completed_successfully
 
   api-customer-consumption:
+    image: voltiagrid/api-customer-consumption:local
     build:
       context: .
       dockerfile: app/api/customer_consumption/Dockerfile
@@ -122,6 +125,7 @@ services:
         condition: service_completed_successfully
 
   api-network-inventory:
+    image: voltiagrid/api-network-inventory:local
     build:
       context: .
       dockerfile: app/api/network_inventory/Dockerfile
@@ -142,6 +146,7 @@ services:
         condition: service_completed_successfully
 
   api-transformer-metering:
+    image: voltiagrid/api-transformer-metering:local
     build:
       context: .
       dockerfile: simulators/transformer_api/Dockerfile
