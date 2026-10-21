@@ -79,4 +79,6 @@ AUTH_ERRORS = {
     403: {"model": ErrorResponse, "description": "The caller is not allowed to read this resource"},
 }
 NOT_FOUND = {404: {"model": ErrorResponse, "description": "Not found"}}
+CONFLICT = {409: {"model": ErrorResponse, "description": "The natural key already exists"}}
+VALIDATION = {422: {"model": ErrorResponse, "description": "Invalid body or parameters; `errors` names each field"}}
 

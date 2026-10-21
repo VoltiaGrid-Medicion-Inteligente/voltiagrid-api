@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from pydantic import AwareDatetime, BaseModel, Field
 
 from app.api.common import AUTH_ERRORS, ErrorResponse, Health, Principal, require_internal
+from app.core.errors import register_error_handlers
 
 MAX_RANGE = timedelta(days=7)
 STEP = timedelta(minutes=15)
@@ -26,6 +27,9 @@ app = FastAPI(
     version="0.1.0",
     description="Load per transformer every 15 minutes and overload alerts (RF-07).",
 )
+register_error_handlers(app)
+
+
 
 
 class LoadPoint(BaseModel):
