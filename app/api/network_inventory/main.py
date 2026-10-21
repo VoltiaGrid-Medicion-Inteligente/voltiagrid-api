@@ -8,13 +8,25 @@ users. Resources are identified by their natural key (code or lclid), never by
 the internal id. The data lives in memory until US-18 connects the routes to the ORM.
 """
 
+
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
-from pydantic import BaseModel, Field
 
 from app.api.common import AUTH_ERRORS, NOT_FOUND, ErrorResponse, Health, Page, Principal, require_internal
+from app.api.network_inventory.schemas import (
+    AcornGrouped,
+    CapacityUpdate,
+    CircuitIn,
+    CircuitOut,
+    CustomerIn,
+    CustomerOut,
+    MeterIn,
+    MeterOut,
+    TransformerIn,
+    TransformerOut,
+)
 
 app = FastAPI(
     title="VoltiaGrid network inventory API",
@@ -25,54 +37,8 @@ app = FastAPI(
 CONFLICT = {409: {"model": ErrorResponse, "description": "The natural key already exists"}}
 Internal = Annotated[Principal, Depends(require_internal)]
 PageQuery = Annotated[int, Query(ge=1, description="Page number, from 1")]
+PageQuery = Annotated[int, Query(ge=1, description="Page number, from 1")]
 SizeQuery = Annotated[int, Query(ge=1, le=200, description="Items per page, max 200")]
-AcornGrouped = Literal["Affluent", "Comfortable", "Adversity", "Unknown"]
-Capacity = Annotated[Decimal, Field(gt=0, max_digits=8, decimal_places=2, examples=["250.00"])]
-
-
-# ---------- schemas (same fields as app/models/inventory.py) ----------
-
-class CustomerIn(BaseModel):
-    code: str = Field(min_length=1, max_length=30, examples=["CU-MAC009999"])
-    acorn_group: str = Field(min_length=1, max_length=30, examples=["ACORN-E"])
-    acorn_grouped: AcornGrouped
-
-
-class CustomerOut(CustomerIn):
-    pass
-
-
-class CircuitIn(BaseModel):
-    code: str = Field(min_length=1, max_length=20, examples=["CT-001"])
-    capacity_kva: Capacity
-
-
-class CircuitOut(CircuitIn):
-    transformers: int = Field(description="number of transformers in the circuit", examples=[7])
-
-
-class TransformerIn(BaseModel):
-    code: str = Field(min_length=1, max_length=20, examples=["TR-00099"])
-    circuit_code: str = Field(min_length=1, max_length=20, examples=["CT-000"])
-    capacity_kva: Capacity
-
-
-class TransformerOut(TransformerIn):
-    meters: int = Field(description="number of meters connected", examples=[64])
-
-
-class CapacityUpdate(BaseModel):
-    capacity_kva: Capacity
-
-
-class MeterIn(BaseModel):
-    lclid: str = Field(min_length=1, max_length=20, examples=["MAC009999"])
-    customer_code: str = Field(min_length=1, max_length=30, examples=["CU-MAC009999"])
-    transformer_code: str = Field(min_length=1, max_length=20, examples=["TR-00000"])
-
-
-class MeterOut(MeterIn):
-    pass
 
 
 # ---------- example data (replaced by the ORM in US-18) ----------
