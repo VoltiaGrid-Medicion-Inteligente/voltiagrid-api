@@ -38,3 +38,32 @@ python -m pytest tests -q
 ```
 
 `make test` and the CI already use `requirements-dev.txt`.
+
+## Image sizes before and after the template (T-16.2)
+
+Measured on: 2026-10-20, by Maria Muñoz, Docker Desktop (engine 29.8.2). Sizes as shown by `docker images` (uncompressed).
+
+| Image | Before (single stage, all requirements) | After (template) | Change |
+|---|---|---|---|
+| migrate-seed | 353MB | 329MB | -24MB |
+| f3-simulator | 353MB | 329MB | -24MB |
+| api-customer-consumption | 353MB | 329MB | -24MB |
+| api-network-inventory | 352MB | 328MB | -24MB |
+| api-transformer-metering | 353MB | 329MB | -24MB |
+
+How it was measured (PowerShell, repo root, Docker Desktop running):
+
+```powershell
+# 1. BEFORE: the commit just before T-16.1 was merged
+git switch --detach <sha-before-T-16.1>
+docker compose build
+docker images --format "table {{.Repository}}\t{{.Size}}" | Select-String voltiagrid
+
+# 2. AFTER: develop with the template
+git switch develop
+docker compose build
+docker images --format "table {{.Repository}}\t{{.Size}}" | Select-String voltiagrid
+```
+
+Before the template the images were named `voltiagrid-api-<service>` (compose default);
+after it they are `voltiagrid/<service>:local`.
