@@ -1,0 +1,37 @@
+# Team template for a Python service image (US-16, T-16.1). See docs/DOCKER.md.
+# Copy it next to the component as `Dockerfile`, then replace the three <...> parts.
+# Build from the repo root:  docker build -f <path>/Dockerfile -t voltiagrid/<name>:local .
+
+# ---------- build stage: installs the dependencies into a virtualenv ----------
+FROM python:3.12-slim AS build
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN python -m venv /opt/venv
+# Only the runtime dependencies: pytest, ruff and pre-commit live in requirements-dev.txt.
+COPY requirements.txt /tmp/requirements.txt
+RUN /opt/venv/bin/pip install -r /tmp/requirements.txt
+
+# ---------- runtime stage: only the virtualenv and the code ----------
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN useradd --create-home --uid 10001 app
+COPY --from=build /opt/venv /opt/venv
+
+WORKDIR /app
+# <1> Copy only the packages this component imports (never the whole repo, never .env).
+COPY app ./app
+
+USER app
+
+# <2> Configuration comes only from environment variables (list them here).
+# <3> Port, healthcheck and command of the component:
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+CMD ["uvicorn", "app.api.<component>.main:app", "--host", "0.0.0.0", "--port", "8000"]

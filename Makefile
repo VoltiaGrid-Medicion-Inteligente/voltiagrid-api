@@ -49,4 +49,4 @@ ps:
 	$(COMPOSE) ps -a
 
 test:
-	docker run --rm --network voltia -v "$(CURDIR):/app" -w /app -e DATABASE_URL=postgresql+psycopg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@db:5432/$(POSTGRES_DB) python:3.12-slim sh -c "pip install -q -r requirements.txt && python -m pytest tests -q"
+	docker run --rm --network voltia -v "$(CURDIR):/app" -w /app -e DATABASE_URL=postgresql+psycopg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@db:5432/$(POSTGRES_DB) python:3.12-slim sh -c "pip install -q -r requirements-dev.txt && python -m pytest tests -q"

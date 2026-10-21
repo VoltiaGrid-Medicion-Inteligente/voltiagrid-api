@@ -1,24 +1,34 @@
-# api-customer-consumption (US-13, T-13.6)
+# api-customer-consumption (US-13, T-13.6), built from docker/Dockerfile.template (T-16.1)
 # Build from the repo root:
-#   docker build -f app/api/customer_consumption/Dockerfile -t voltiagrid-api-customer-consumption .
-FROM python:3.12-slim
+#   docker build -f app/api/customer_consumption/Dockerfile -t voltiagrid/api-customer-consumption:local .
+
+# ---------- build stage ----------
+FROM python:3.12-slim AS build
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN python -m venv /opt/venv
+COPY requirements.txt /tmp/requirements.txt
+RUN /opt/venv/bin/pip install -r /tmp/requirements.txt
+
+# ---------- runtime stage ----------
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PATH="/opt/venv/bin:$PATH"
+
+RUN useradd --create-home --uid 10001 api
+COPY --from=build /opt/venv /opt/venv
 
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
 # The API imports the F4 models, the consumption model of the simulators and the F7 calendar.
 COPY app ./app
 COPY seed ./seed
 COPY simulators ./simulators
 COPY data/reference ./data/reference
 
-RUN useradd --create-home --uid 10001 api
 USER api
 
 # Configuration comes only from environment variables:

@@ -7,7 +7,16 @@ __pycache__
 .pytest_cache
 .ruff_cache
 .env
+.env.*
 data/raw/*
 !data/raw/informations_households.csv
 docs
 tests
+collections
+scripts
+docker
+Makefile
+**/*.md
+.gitattributes
+.pre-commit-config.yaml
+requirements-dev.txt
