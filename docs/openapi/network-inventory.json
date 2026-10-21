@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "CapacityUpdate": {
+        "additionalProperties": false,
         "properties": {
           "capacity_kva": {
             "anyOf": [
@@ -13,6 +14,7 @@
                 "type": "string"
               }
             ],
+            "description": "kVA, up to 6 digits and 2 decimals (NUMERIC(8,2))",
             "examples": [
               "250.00"
             ],
@@ -26,6 +28,7 @@
         "type": "object"
       },
       "CircuitIn": {
+        "additionalProperties": false,
         "properties": {
           "capacity_kva": {
             "anyOf": [
@@ -37,6 +40,7 @@
                 "type": "string"
               }
             ],
+            "description": "kVA, up to 6 digits and 2 decimals (NUMERIC(8,2))",
             "examples": [
               "250.00"
             ],
@@ -47,7 +51,8 @@
               "CT-001"
             ],
             "maxLength": 20,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^CT-[A-Z0-9]+$",
             "title": "Code",
             "type": "string"
           }
@@ -63,17 +68,15 @@
         "properties": {
           "capacity_kva": {
             "examples": [
-              "250.00"
+              "2100.12"
             ],
             "title": "Capacity Kva",
             "type": "string"
           },
           "code": {
             "examples": [
-              "CT-001"
+              "CT-000"
             ],
-            "maxLength": 20,
-            "minLength": 1,
             "title": "Code",
             "type": "string"
           },
@@ -95,6 +98,7 @@
         "type": "object"
       },
       "CustomerIn": {
+        "additionalProperties": false,
         "properties": {
           "acorn_group": {
             "examples": [
@@ -120,7 +124,8 @@
               "CU-MAC009999"
             ],
             "maxLength": 30,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^CU-[A-Z0-9]+$",
             "title": "Code",
             "type": "string"
           }
@@ -137,10 +142,8 @@
         "properties": {
           "acorn_group": {
             "examples": [
-              "ACORN-E"
+              "ACORN-A"
             ],
-            "maxLength": 30,
-            "minLength": 1,
             "title": "Acorn Group",
             "type": "string"
           },
@@ -156,10 +159,8 @@
           },
           "code": {
             "examples": [
-              "CU-MAC009999"
+              "CU-MAC000002"
             ],
-            "maxLength": 30,
-            "minLength": 1,
             "title": "Code",
             "type": "string"
           }
@@ -254,13 +255,15 @@
         "type": "object"
       },
       "MeterIn": {
+        "additionalProperties": false,
         "properties": {
           "customer_code": {
             "examples": [
               "CU-MAC009999"
             ],
             "maxLength": 30,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^CU-[A-Z0-9]+$",
             "title": "Customer Code",
             "type": "string"
           },
@@ -270,15 +273,17 @@
             ],
             "maxLength": 20,
             "minLength": 1,
+            "pattern": "^[A-Z0-9]+$",
             "title": "Lclid",
             "type": "string"
           },
           "transformer_code": {
             "examples": [
-              "TR-00000"
+              "TR-00099"
             ],
             "maxLength": 20,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^TR-[A-Z0-9]+$",
             "title": "Transformer Code",
             "type": "string"
           }
@@ -295,19 +300,15 @@
         "properties": {
           "customer_code": {
             "examples": [
-              "CU-MAC009999"
+              "CU-MAC000002"
             ],
-            "maxLength": 30,
-            "minLength": 1,
             "title": "Customer Code",
             "type": "string"
           },
           "lclid": {
             "examples": [
-              "MAC009999"
+              "MAC000002"
             ],
-            "maxLength": 20,
-            "minLength": 1,
             "title": "Lclid",
             "type": "string"
           },
@@ -315,8 +316,6 @@
             "examples": [
               "TR-00000"
             ],
-            "maxLength": 20,
-            "minLength": 1,
             "title": "Transformer Code",
             "type": "string"
           }
@@ -506,6 +505,7 @@
         "type": "object"
       },
       "TransformerIn": {
+        "additionalProperties": false,
         "properties": {
           "capacity_kva": {
             "anyOf": [
@@ -517,6 +517,7 @@
                 "type": "string"
               }
             ],
+            "description": "kVA, up to 6 digits and 2 decimals (NUMERIC(8,2))",
             "examples": [
               "250.00"
             ],
@@ -524,10 +525,11 @@
           },
           "circuit_code": {
             "examples": [
-              "CT-000"
+              "CT-001"
             ],
             "maxLength": 20,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^CT-[A-Z0-9]+$",
             "title": "Circuit Code",
             "type": "string"
           },
@@ -536,7 +538,8 @@
               "TR-00099"
             ],
             "maxLength": 20,
-            "minLength": 1,
+            "minLength": 4,
+            "pattern": "^TR-[A-Z0-9]+$",
             "title": "Code",
             "type": "string"
           }
@@ -553,7 +556,7 @@
         "properties": {
           "capacity_kva": {
             "examples": [
-              "250.00"
+              "141.00"
             ],
             "title": "Capacity Kva",
             "type": "string"
@@ -562,17 +565,13 @@
             "examples": [
               "CT-000"
             ],
-            "maxLength": 20,
-            "minLength": 1,
             "title": "Circuit Code",
             "type": "string"
           },
           "code": {
             "examples": [
-              "TR-00099"
+              "TR-00001"
             ],
-            "maxLength": 20,
-            "minLength": 1,
             "title": "Code",
             "type": "string"
           },
