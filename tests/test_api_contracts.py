@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 from app.api.control_center.main import app as control_center
 from app.api.customer_consumption.main import app as customer_consumption
 from app.api.network_inventory.main import app as network_inventory
+from app.core.db import get_session
 from app.core.security import issue_token
+from app.models.inventory import Circuit, Customer, Meter, Transformer
 
 CUSTOMER = {"Authorization": f"Bearer {issue_token('customer', customer_code='CU-MAC000002')}"}
 INTERNAL = {"Authorization": f"Bearer {issue_token('internal')}"}
@@ -14,12 +16,9 @@ MONTH = {"month": "2013-02"}
 RANGE = {"start": "2013-03-04T00:00:00Z", "end": "2013-03-04T02:00:00Z"}
 
 
-
 @pytest.fixture
 def cc(consumption_app):
     return TestClient(consumption_app)
-
-
 
 
 @pytest.fixture
@@ -28,8 +27,21 @@ def ctl():
 
 
 @pytest.fixture
-def inv():
-    return TestClient(network_inventory)
+def inv(session):
+    """Inventory API on Postgres (US-18): a small network inside a transaction rolled back after the test."""
+    circuit = Circuit(code="CT-K01", capacity_kva="1500.00")
+    tr1 = Transformer(code="TR-K0001", circuit=circuit, capacity_kva="141.00")
+    tr2 = Transformer(code="TR-K0002", circuit=circuit, capacity_kva="200.00")
+    c1 = Customer(code="CU-KMAC000002", acorn_group="ACORN-A", acorn_grouped="Affluent")
+    c2 = Customer(code="CU-KMAC000003", acorn_group="ACORN-P", acorn_grouped="Adversity")
+    session.add_all([circuit, tr1, tr2, c1, c2,
+                     Meter(lclid="KMAC000002", customer=c1, transformer=tr1),
+                     Meter(lclid="KMAC000003", customer=c2, transformer=tr1),
+                     Meter(lclid="KMAC000004", customer=c2, transformer=tr2)])
+    session.flush()
+    network_inventory.dependency_overrides[get_session] = lambda: session
+    yield TestClient(network_inventory)
+    network_inventory.dependency_overrides.pop(get_session, None)
 
 
 # ---------- every API ----------
@@ -109,25 +121,25 @@ def test_control_center_is_internal_only(ctl):
 # ---------- network inventory ----------
 
 def test_create_customer_201_and_duplicate_409(inv):
-    body = {"code": "CU-MAC123456", "acorn_group": "ACORN-E", "acorn_grouped": "Affluent"}
+    body = {"code": "CU-K123456", "acorn_group": "ACORN-E", "acorn_grouped": "Affluent"}
     assert inv.post("/customers", json=body, headers=INTERNAL).status_code == 201
     assert inv.post("/customers", json=body, headers=INTERNAL).status_code == 409
 
 
 def test_invalid_body_is_422_naming_the_field(inv):
-    r = inv.post("/customers", json={"code": "X", "acorn_group": "A", "acorn_grouped": "Rich"}, headers=INTERNAL)
+    r = inv.post("/customers", json={"code": "CU-X", "acorn_group": "A", "acorn_grouped": "Rich"}, headers=INTERNAL)
     assert r.status_code == 422
     assert "acorn_grouped" in r.text
 
 
 def test_unknown_customer_is_404(inv):
-    r = inv.get("/customers/CU-MAC000999", headers=INTERNAL)
+    r = inv.get("/customers/CU-KMAC000999", headers=INTERNAL)
     assert r.status_code == 404
     assert "not found" in r.json()["detail"]
 
 
 def test_meters_are_paginated_and_filtered(inv):
-    r = inv.get("/meters", params={"transformer_code": "TR-00000", "page": 1, "size": 1}, headers=INTERNAL)
+    r = inv.get("/meters", params={"transformer_code": "TR-K0001", "page": 1, "size": 1}, headers=INTERNAL)
     body = r.json()
     assert r.status_code == 200
     assert body["total"] == 2 and len(body["items"]) == 1
@@ -135,6 +147,6 @@ def test_meters_are_paginated_and_filtered(inv):
 
 
 def test_transformer_capacity_can_be_updated(inv):
-    r = inv.patch("/transformers/TR-00001", json={"capacity_kva": "160.00"}, headers=INTERNAL)
+    r = inv.patch("/transformers/TR-K0001", json={"capacity_kva": "160.00"}, headers=INTERNAL)
     assert r.status_code == 200
     assert r.json()["capacity_kva"] == "160.00"

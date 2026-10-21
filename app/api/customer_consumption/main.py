@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from app.api.auth import router as auth_router
 from app.api.common import AUTH_ERRORS, NOT_FOUND, Health, Principal, get_principal
 from app.api.customer_consumption.service import AccessDenied, ConsumptionService, CustomerNotFound, get_service
+from app.core.errors import register_error_handlers
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
@@ -26,6 +27,7 @@ app = FastAPI(
     version="0.2.0",
     description="Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
 )
+register_error_handlers(app)
 app.include_router(auth_router)
 
 
