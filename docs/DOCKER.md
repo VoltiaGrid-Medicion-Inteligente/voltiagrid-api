@@ -23,6 +23,7 @@ component as `Dockerfile`, keep the two stages and change only the marked parts.
 | `voltiagrid/migrate-seed:local` | `seed/Dockerfile` |
 | `voltiagrid/f3-simulator:local` | `simulators/concentrator/Dockerfile` |
 | `voltiagrid/api-customer-consumption:local` | `app/api/customer_consumption/Dockerfile` |
+| `voltiagrid/api-control-center:local` | `app/api/control_center/Dockerfile` |
 | `voltiagrid/api-network-inventory:local` | `app/api/network_inventory/Dockerfile` |
 | `voltiagrid/api-transformer-metering:local` | `simulators/transformer_api/Dockerfile` |
 

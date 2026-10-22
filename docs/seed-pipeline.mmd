@@ -1,0 +1,6 @@
+flowchart LR
+  CSV["informations_households.csv"] --> SORT["ordena por LCLid, toma N"]
+  SORT --> NET["plan_network: bloques 50-80, 5-10 TX por CT"]
+  NET --> F1["builders: CU-LCLid, CT-LCLid-1, meter+lclid"]
+  F1 --> UP["upserts: circuits→transformers→customers→contracts→meters"]
+  UP --> DB[("PostgreSQL")]
