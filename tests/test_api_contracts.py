@@ -22,8 +22,8 @@ def cc(consumption_app):
 
 
 @pytest.fixture
-def ctl():
-    return TestClient(control_center)
+def ctl(control_center_app):
+    return TestClient(control_center_app)
 
 
 @pytest.fixture

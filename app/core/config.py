@@ -28,6 +28,7 @@ class Settings:
     model_seed: int = 42
     defect_rate: float = 0.02
     tariffs_csv: str = "data/reference/tariffs.csv"
+    f5_url: str = "http://localhost:8005"
 
     @property
     def database_url(self) -> str:
@@ -53,4 +54,5 @@ def get_settings() -> Settings:
         model_seed=int(os.getenv("SIM_SEED") or "42"),
         defect_rate=float(os.getenv("DEFECT_RATE") or "0.02"),
         tariffs_csv=os.getenv("TARIFFS_CSV") or "data/reference/tariffs.csv",
+        f5_url=os.getenv("F5_URL") or "http://localhost:8005",
     )

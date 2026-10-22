@@ -1,14 +1,14 @@
-"""Control center API: OpenAPI stub (US-12, T-12.1). Implemented in US-19.
+"""Control center API (US-19).
 
     uvicorn app.api.control_center.main:app --port 8002
     open http://localhost:8002/docs
 
 Load per transformer and overload alerts for control center operators
-(internal users only). The load comes from F5 (energy delivered every
-15 minutes) in US-19; until then the data is a fixed example.
+(internal users only). Load comes from F5 (energy delivered every 15 minutes)
+and capacity from F4. Needs DATABASE_URL and F5_URL.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -16,20 +16,18 @@ from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from pydantic import AwareDatetime, BaseModel, Field
 
 from app.api.common import AUTH_ERRORS, ErrorResponse, Health, Principal, require_internal
+from app.api.control_center.f5_client import F5Unavailable
+from app.api.control_center.service import ControlCenterService, InvalidRange, get_service
 from app.core.errors import register_error_handlers
 
-MAX_RANGE = timedelta(days=7)
-STEP = timedelta(minutes=15)
-EXAMPLE_TRANSFORMERS = {"TR-00000": Decimal("155.82"), "TR-00001": Decimal("141.00"), "TR-00002": Decimal("396.27")}
+F5_DOWN = {502: {"model": ErrorResponse, "description": "F5 transformer metering API is not available"}}
 
 app = FastAPI(
     title="VoltiaGrid control center API",
-    version="0.1.0",
+    version="0.2.0",
     description="Load per transformer every 15 minutes and overload alerts (RF-07).",
 )
 register_error_handlers(app)
-
-
 
 
 class LoadPoint(BaseModel):
@@ -65,7 +63,8 @@ def health():
     responses={
         **AUTH_ERRORS,
         404: {"model": ErrorResponse, "description": "Unknown transformer"},
-        422: {"model": ErrorResponse, "description": "end before start or range above 7 days"},
+        422: {"model": ErrorResponse, "description": "end before start, empty range or range above 7 days"},
+        **F5_DOWN,
     },
     tags=["load"],
     summary="Load per 15-minute interval and % of capacity for one transformer",
@@ -74,21 +73,15 @@ def transformer_load(
     transformer_code: Annotated[str, Path(examples=["TR-00001"])],
     start: Annotated[AwareDatetime, Query(description="ISO 8601 with time zone", examples=["2013-03-04T00:00:00Z"])],
     end: Annotated[AwareDatetime, Query(description="exclusive", examples=["2013-03-05T00:00:00Z"])],
+    service: Annotated[ControlCenterService, Depends(get_service)],
     _: Principal = Depends(require_internal),
 ):
-    capacity = EXAMPLE_TRANSFORMERS.get(transformer_code)
-    if capacity is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Transformer '{transformer_code}' not found")
-    if end <= start:
-        raise HTTPException(422, "end must be after start")
-    if end - start > MAX_RANGE:
-        raise HTTPException(422, "range must be 7 days or less")
-    points, ts = [], start
-    while ts < end:
-        load = Decimal("40") + Decimal(ts.hour * 2)
-        points.append(LoadPoint(interval_start=ts, load_kw=load, capacity_pct=(load / capacity * 100).quantize(Decimal("0.1"))))
-        ts += STEP
-    return TransformerLoad(transformer_code=transformer_code, capacity_kva=capacity, points=points)
+    try:
+        return service.load(transformer_code, start, end)
+    except InvalidRange as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except F5Unavailable as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "F5 transformer metering API is not available") from exc
 
 
 @app.get(
