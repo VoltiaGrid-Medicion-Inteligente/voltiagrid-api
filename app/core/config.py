@@ -31,8 +31,6 @@ class Settings:
     f5_url: str = "http://localhost:8005"
 
     @property
-
-    @property
     def database_url(self) -> str:
         return _required("DATABASE_URL")
 
