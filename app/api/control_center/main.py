@@ -8,7 +8,7 @@ Load per transformer and overload alerts for control center operators
 and capacity from F4. Needs DATABASE_URL and F5_URL.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
@@ -85,17 +85,19 @@ def transformer_load(
 
 
 @app.get(
-    "/alerts/overload",
+        "/alerts/overload",
     response_model=list[OverloadAlert],
-    responses=AUTH_ERRORS,
+    responses={**AUTH_ERRORS, **F5_DOWN},
     tags=["alerts"],
     summary="Transformers above their capacity in the 15-minute interval that contains `at`",
 )
 def overload_alerts(
+    service: Annotated[ControlCenterService, Depends(get_service)],
     _: Annotated[Principal, Depends(require_internal)],
     at: Annotated[AwareDatetime | None, Query(description="defaults to now (UTC)", examples=["2013-03-04T19:00:00Z"])] = None,
+    circuit_code: Annotated[str | None, Query(description="only this circuit", examples=["CT-000"])] = None,
 ):
-    interval = (at or datetime.now().astimezone()).replace(second=0, microsecond=0)
-    interval = interval.replace(minute=interval.minute - interval.minute % 15)
-    return [OverloadAlert(transformer_code="TR-00002", circuit_code="CT-000", interval_start=interval,
-                          load_kw=Decimal("414.1"), capacity_kva=Decimal("396.27"), capacity_pct=Decimal("104.5"))]
+    try:
+        return service.overload_alerts(at or datetime.now(timezone.utc), circuit_code)
+    except F5Unavailable as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "F5 transformer metering API is not available") from exc

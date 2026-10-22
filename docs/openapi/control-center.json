@@ -286,6 +286,27 @@
               ],
               "title": "At"
             }
+          },
+          {
+            "description": "only this circuit",
+            "in": "query",
+            "name": "circuit_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only this circuit",
+              "examples": [
+                "CT-000"
+              ],
+              "title": "Circuit Code"
+            }
           }
         ],
         "responses": {
@@ -332,6 +353,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "F5 transformer metering API is not available"
           }
         },
         "security": [
