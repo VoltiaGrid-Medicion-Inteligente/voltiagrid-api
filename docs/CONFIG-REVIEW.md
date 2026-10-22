@@ -36,3 +36,4 @@ docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.18.4 detect --sou
 ```
 
 Expected last line: `no leaks found`. On PowerShell `${PWD}` works as written. The same scan runs in CI (`secrets` job).
+

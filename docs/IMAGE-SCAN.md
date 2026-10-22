@@ -61,4 +61,4 @@ Scanned on: 2026-10-20, by Sharon. Trivy 0.56.2, Docker Desktop, images built fr
 | api-transformer-metering | | | | | |
 | api-control-center | | | | | |
 
-Paste the full output of the loop in the PR description (or attach it as a file) as evidence.
+Paste the full output of the loop in the PR description (or attach it as a file) as evidence. 

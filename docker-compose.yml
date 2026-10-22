@@ -193,3 +193,4 @@ networks:
 volumes:
   pgdata:
   rabbitmqdata:
+
