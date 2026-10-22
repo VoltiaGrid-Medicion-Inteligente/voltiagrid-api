@@ -23,6 +23,7 @@ Repeat this review whenever a service, a port or a variable is added.
 | Port (host) | Service | Exposed to |
 |---|---|---|
 | 5433 | Postgres | 127.0.0.1 |
+| 5672 | RabbitMQ AMQP | 127.0.0.1 |
 | 15672 | RabbitMQ management | 127.0.0.1 |
 | 8001 | api-customer-consumption | 127.0.0.1 |
 | 8002 | api-control-center | 127.0.0.1 |
@@ -36,4 +37,3 @@ docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.18.4 detect --sou
 ```
 
 Expected last line: `no leaks found`. On PowerShell `${PWD}` works as written. The same scan runs in CI (`secrets` job).
-

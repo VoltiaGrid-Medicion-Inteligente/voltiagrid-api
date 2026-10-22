@@ -162,7 +162,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]
     depends_on:
       migrate-seed:
-                condition: service_completed_successfully
+        condition: service_completed_successfully
 
   api-control-center:
     image: voltiagrid/api-control-center:local
