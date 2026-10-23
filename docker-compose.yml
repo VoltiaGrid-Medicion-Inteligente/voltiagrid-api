@@ -164,6 +164,28 @@ services:
       migrate-seed:
         condition: service_completed_successfully
 
+  api-control-center:
+    image: voltiagrid/api-control-center:local
+    build:
+      context: .
+      dockerfile: app/api/control_center/Dockerfile
+    environment:
+      DATABASE_URL: *database-url
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      F5_URL: http://api-transformer-metering:8005
+    ports:
+      - "127.0.0.1:8002:8002"
+    networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      <<: *api-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=2)"]
+    depends_on:
+      migrate-seed:
+        condition: service_completed_successfully
+      api-transformer-metering:
+        condition: service_healthy
+
 networks:
   voltia:
     name: voltia
@@ -171,3 +193,4 @@ networks:
 volumes:
   pgdata:
   rabbitmqdata:
+

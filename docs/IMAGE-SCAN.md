@@ -6,14 +6,16 @@ Run it after `docker compose build`, whenever a Dockerfile changes, and before p
 ## Images
 
 `voltiagrid/migrate-seed:local`, `voltiagrid/f3-simulator:local`, `voltiagrid/api-customer-consumption:local`,
-`voltiagrid/api-network-inventory:local`, `voltiagrid/api-transformer-metering:local`
+`voltiagrid/api-network-inventory:local`, `voltiagrid/api-transformer-metering:local`,
+`voltiagrid/api-control-center:local`
+
 
 ## How (PowerShell, Docker Desktop running)
 
 ```powershell
 $images = "voltiagrid/migrate-seed:local", "voltiagrid/f3-simulator:local",
           "voltiagrid/api-customer-consumption:local", "voltiagrid/api-network-inventory:local",
-          "voltiagrid/api-transformer-metering:local"
+          "voltiagrid/api-transformer-metering:local", "voltiagrid/api-control-center:local"
 
 foreach ($i in $images) {
   Write-Host "===== $i"
@@ -56,5 +58,6 @@ Scanned on: 2026-10-20, by Sharon. Trivy 0.56.2, Docker Desktop, images built fr
 | api-customer-consumption | none | no credentials | none (public CA bundle only) | 1 known false positive (PyJWT README example) | Yes |
 | api-network-inventory | none | no credentials | none (public CA bundle only) | 1 known false positive (PyJWT README example) | Yes |
 | api-transformer-metering | none | no credentials | none (public CA bundle only) | 1 known false positive (PyJWT README example) | Yes |
+| api-control-center | none | no credentials | none (public CA bundle only) | 1 known false positive (PyJWT README example) | Yes |
 
 The full output of the loop is in the PR description as evidence.
