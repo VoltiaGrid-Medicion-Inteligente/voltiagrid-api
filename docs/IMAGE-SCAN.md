@@ -5,7 +5,10 @@ Run it after `docker compose build`, whenever a Dockerfile changes, and before p
 
 ## Images
 
-`voltiagrid/api-network-inventory:local`, `voltiagrid/api-transformer-metering:local`, `voltiagrid/api-control-center:local`
+`voltiagrid/migrate-seed:local`, `voltiagrid/f3-simulator:local`, `voltiagrid/api-customer-consumption:local`,
+`voltiagrid/api-network-inventory:local`, `voltiagrid/api-transformer-metering:local`,
+`voltiagrid/api-control-center:local`
+
 
 ## How (PowerShell, Docker Desktop running)
 
