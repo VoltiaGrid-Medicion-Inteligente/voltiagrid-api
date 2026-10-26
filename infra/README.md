@@ -11,6 +11,7 @@ infra/
 ├── envs/
 │   └── dev/          # Ephemeral stack: network, endpoints, admin instance, RDS, ECS, ALB...
 └── modules/          # Reusable pieces used by the stacks
+    ├── admin_instance/ # EC2 in a private subnet, Session Manager only (US-22)
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
     └── security/     # One Security Group per component, least privilege
 ```
