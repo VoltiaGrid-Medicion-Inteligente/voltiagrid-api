@@ -9,3 +9,10 @@ venv/
 .ruff_cache/
 data/raw/*
 !data/raw/informations_households.csv
+
+# Terraform (infra/)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
