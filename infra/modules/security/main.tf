@@ -3,7 +3,8 @@
 # reference each other without cycles.
 #
 #   internet --80--> alb --8001,8002,8003,8005--> app (Fargate) --5432--> rds
-#   admin (EC2, no inbound) --443--> endpoints (SSM)     admin --5432--> rds
+#   admin (EC2, no inbound) --443--> endpoints (SSM) and S3 (gateway endpoint)
+#   admin --5432--> rds (port forwarding)
 #
 # Terraform removes the default "allow all" egress rule of every group it creates, so a group
 # without egress rules cannot start connections.
@@ -159,6 +160,17 @@ resource "aws_vpc_security_group_egress_rule" "admin_to_endpoints" {
   ip_protocol                  = "tcp"
   from_port                    = 443
   to_port                      = 443
+
+  tags = var.tags
+}
+
+resource "aws_vpc_security_group_egress_rule" "admin_to_s3" {
+  security_group_id = aws_security_group.admin.id
+  description       = "HTTPS to S3 through the gateway endpoint (T-21.3)"
+  prefix_list_id    = var.s3_prefix_list_id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
 
   tags = var.tags
 }
