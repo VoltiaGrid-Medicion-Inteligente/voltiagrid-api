@@ -16,3 +16,12 @@ module "network" {
 
   tags = { Component = "network" }
 }
+
+module "security" {
+  source = "../../modules/security"
+
+  name   = local.name
+  vpc_id = module.network.vpc_id
+
+  tags = { Component = "security-groups" }
+}
