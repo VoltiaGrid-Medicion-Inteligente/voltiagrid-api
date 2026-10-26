@@ -26,3 +26,16 @@ module "security" {
 
   tags = { Component = "security-groups" }
 }
+
+module "admin_instance" {
+  source = "../../modules/admin_instance"
+  count  = var.enable_admin_instance ? 1 : 0
+
+  name                        = local.name
+  vpc_id                      = module.network.vpc_id
+  subnet_id                   = module.network.private_subnet_ids[0]
+  security_group_id           = module.security.admin_sg_id
+  endpoints_security_group_id = module.security.endpoints_sg_id
+
+  tags = { Component = "admin-instance" }
+}

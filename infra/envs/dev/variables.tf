@@ -38,3 +38,9 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = false
 }
+
+variable "enable_admin_instance" {
+  description = "Create the admin instance and its SSM endpoints (about 0.035 USD per hour together)."
+  type        = bool
+  default     = true
+}
