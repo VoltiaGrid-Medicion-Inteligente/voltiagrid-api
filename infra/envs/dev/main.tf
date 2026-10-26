@@ -20,8 +20,9 @@ module "network" {
 module "security" {
   source = "../../modules/security"
 
-  name   = local.name
-  vpc_id = module.network.vpc_id
+  name              = local.name
+  vpc_id            = module.network.vpc_id
+  s3_prefix_list_id = module.network.s3_prefix_list_id
 
   tags = { Component = "security-groups" }
 }

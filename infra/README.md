@@ -70,6 +70,21 @@ terraform -chdir=infra/envs/dev apply dev.tfplan
 terraform -chdir=infra/envs/dev destroy
 ```
 
+## How S3 traffic leaves the VPC (T-21.3)
+
+A gateway VPC endpoint for S3 is attached to the public and the private route tables. Each table gets a
+route whose destination is the S3 prefix list (`pl-...`) and whose target is the endpoint (`vpce-...`).
+Traffic to S3 never uses a NAT Gateway or the internet, and the endpoint has no hourly cost.
+
+Check it after an apply:
+
+```powershell
+$vpc = terraform -chdir=infra/envs/dev output -raw vpc_id
+aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$vpc" --query "RouteTables[].{table:Tags[?Key=='Name']|[0].Value,routes:Routes[].[DestinationCidrBlock||DestinationPrefixListId,GatewayId||NatGatewayId]}" --output json
+```
+
+The private table must show only `local` and the `pl-...` route to `vpce-...`, and no `0.0.0.0/0`.
+
 ## Tags
 
 The provider applies `Project=voltiagrid`, `Environment`, `Owner` and `ManagedBy=terraform` to every

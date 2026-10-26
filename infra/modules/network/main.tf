@@ -116,3 +116,18 @@ resource "aws_route" "private_nat" {
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.this[0].id
 }
+
+# ---------- S3 gateway endpoint (T-21.3) ----------
+# Free. Adds a route to the S3 prefix list in both route tables, so traffic to S3 from any subnet
+# stays on the AWS network and never goes through a NAT Gateway or the internet.
+
+data "aws_region" "current" {}
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private.id, aws_route_table.public.id]
+
+  tags = merge(var.tags, { Name = "${var.name}-s3" })
+}

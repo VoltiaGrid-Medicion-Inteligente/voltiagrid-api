@@ -8,6 +8,11 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "s3_prefix_list_id" {
+  description = "Prefix list of the S3 gateway endpoint (output of the network module)."
+  type        = string
+}
+
 variable "app_ports" {
   description = "Container ports of the APIs behind the load balancer."
   type        = list(number)
