@@ -23,7 +23,7 @@ variable "force_destroy" {
 variable "tags" {
   description = "Extra tags (Component, Owner)."
   type        = map(string)
-    default     = {}
+  default     = {}
 }
 
 variable "retention_days" {

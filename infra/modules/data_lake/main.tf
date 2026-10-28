@@ -159,7 +159,7 @@ resource "aws_iam_policy" "process" {
     ]
   })
 
-    tags = var.tags
+  tags = var.tags
 }
 
 # ---------- lifecycle (T-23.2) ----------
