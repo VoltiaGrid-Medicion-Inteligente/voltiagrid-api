@@ -161,3 +161,78 @@ resource "aws_iam_policy" "process" {
 
   tags = var.tags
 }
+
+# ---------- lifecycle (T-23.2) ----------
+# Objects move to cheaper storage classes as they get older and are deleted after 3 years.
+# Days count from the moment the object was written to the bucket.
+#   STANDARD (0.023 USD/GB-month) -> STANDARD_IA (0.0125) -> GLACIER_IR (0.004) -> DEEP_ARCHIVE (0.00099)
+
+locals {
+  transitions = {
+    # Raw is read again only to reprocess. After a year a reprocess can wait the 12 hours that a
+    # Deep Archive restore takes.
+    raw = [
+      { days = 30, storage_class = "STANDARD_IA" },
+      { days = 90, storage_class = "GLACIER_IR" },
+      { days = 365, storage_class = "DEEP_ARCHIVE" },
+    ]
+    # Clean is read by every daily close for recent days and by monthly billing; old months are
+    # read rarely but must answer in milliseconds (Glacier Instant Retrieval).
+    clean = [
+      { days = 30, storage_class = "STANDARD_IA" },
+      { days = 180, storage_class = "GLACIER_IR" },
+    ]
+    # Curated is small and read by Power BI; only months older than a quarter go to IA.
+    curated = [
+      { days = 90, storage_class = "STANDARD_IA" },
+    ]
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "layer" {
+  for_each = aws_s3_bucket.layer
+
+  bucket = each.value.id
+
+  rule {
+    id     = "abort-incomplete-multipart-uploads"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+
+  rule {
+    id     = "tiering-and-3-year-retention"
+    status = "Enabled"
+
+    filter {}
+
+    dynamic "transition" {
+      for_each = lookup(local.transitions, each.key, [])
+
+      content {
+        days          = transition.value.days
+        storage_class = transition.value.storage_class
+      }
+    }
+
+    expiration {
+      days = var.retention_days
+    }
+
+    # Only raw is versioned: old versions are removed 30 days after being replaced or deleted.
+    dynamic "noncurrent_version_expiration" {
+      for_each = each.key == "raw" ? [1] : []
+
+      content {
+        noncurrent_days = 30
+      }
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.raw]
+}
