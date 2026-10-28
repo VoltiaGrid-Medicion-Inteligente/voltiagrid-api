@@ -9,9 +9,11 @@ and ADR-012 (Terraform, state and stacks) in `voltiagrid-docs`.
 infra/
 ├── bootstrap/        # S3 bucket for the Terraform state. Applied once, never destroyed.
 ├── envs/
+│   ├── data/         # Persistent stack: data lake buckets (US-23). Not destroyed after a window.
 │   └── dev/          # Ephemeral stack: network, endpoints, admin instance, RDS, ECS, ALB...
 └── modules/          # Reusable pieces used by the stacks
     ├── admin_instance/ # EC2 in a private subnet, Session Manager only (US-22)
+    ├── data_lake/    # raw, clean and curated buckets, policies for roles (US-23)
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
     └── security/     # One Security Group per component, least privilege
 ```
@@ -70,6 +72,19 @@ terraform -chdir=infra/envs/dev apply dev.tfplan
 # ... test ...
 terraform -chdir=infra/envs/dev destroy
 ```
+
+## The data stack (data lake)
+
+Applied once and kept: it holds the readings for 3 years. A window's `destroy` is only for `envs/dev`.
+
+```powershell
+terraform -chdir=infra/envs/data init -backend-config="bucket=$bucket"
+terraform -chdir=infra/envs/data plan -out data.tfplan
+terraform -chdir=infra/envs/data apply data.tfplan
+terraform -chdir=infra/envs/data output
+```
+
+`force_destroy` is `false`: a `destroy` of this stack fails while a bucket has objects. That is on purpose.
 
 ## How S3 traffic leaves the VPC (T-21.3)
 
