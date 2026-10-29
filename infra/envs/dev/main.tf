@@ -39,3 +39,14 @@ module "admin_instance" {
 
   tags = { Component = "admin-instance" }
 }
+
+module "rds" {
+  source = "../../modules/rds"
+
+  name               = local.name
+  private_subnet_ids = module.network.private_subnet_ids
+  security_group_id  = module.security.rds_sg_id
+  instance_class     = var.db_instance_class
+
+  tags = { Component = "rds" }
+}

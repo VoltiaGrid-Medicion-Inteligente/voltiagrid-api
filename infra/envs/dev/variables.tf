@@ -44,3 +44,9 @@ variable "enable_admin_instance" {
   type        = bool
   default     = true
 }
+
+variable "db_instance_class" {
+  description = "RDS instance class (docs: Costs)."
+  type        = string
+  default     = "db.t4g.micro"
+}
