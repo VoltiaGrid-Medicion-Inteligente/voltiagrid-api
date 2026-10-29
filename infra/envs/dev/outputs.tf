@@ -18,3 +18,13 @@ output "admin_instance_id" {
   description = "aws ssm start-session --target <this id>"
   value       = try(module.admin_instance[0].instance_id, null)
 }
+
+output "rds_address" {
+  description = "Private DNS name of RDS (only resolvable to a private IP)."
+  value       = module.rds.address
+}
+
+output "rds_master_secret_arn" {
+  description = "Secret with the RDS master user and password, managed by RDS."
+  value       = module.rds.master_secret_arn
+}

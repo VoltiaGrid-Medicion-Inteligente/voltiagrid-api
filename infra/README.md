@@ -15,6 +15,7 @@ infra/
     ├── admin_instance/ # EC2 in a private subnet, Session Manager only (US-22)
     ├── data_lake/    # raw, clean and curated buckets, policies for roles (US-23)
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
+    ├── rds/          # PostgreSQL 16, private, encrypted, backups, password in Secrets Manager (US-25)
     └── security/     # One Security Group per component, least privilege
 ```
 
