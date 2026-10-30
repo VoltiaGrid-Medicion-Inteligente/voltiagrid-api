@@ -31,6 +31,7 @@ app = FastAPI(
     title="VoltiaGrid transformer metering API (F5)",
     version="1.0.0",
     description="Simulated energy delivered per transformer every 15 minutes, with loss injection.",
+    root_path=os.getenv("ROOT_PATH") or "",  # /f5 behind the load balancer (T-27.3)
 )
 
 
@@ -49,7 +50,6 @@ def get_inventory() -> Inventory:
     if not url:
         raise RuntimeError("DATABASE_URL is missing (or DB_HOST, DB_USER, DB_PASSWORD, or set SIM_SYNTHETIC_METERS)")
     return load_from_db(url)
-
 
 
 _store = LossStore()

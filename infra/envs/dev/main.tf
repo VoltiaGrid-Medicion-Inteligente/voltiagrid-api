@@ -102,6 +102,14 @@ locals {
   }
   app_secret = module.secrets.app_secret_arn
 
+  # Path prefix of each API on the load balancer (T-27.3). The API gets it as ROOT_PATH.
+  routes = {
+    "api-customer-consumption" = { path_prefix = "/consumption", port = 8001, priority = 10, short_name = "consumption" }
+    "api-control-center"       = { path_prefix = "/control-center", port = 8002, priority = 20, short_name = "control-center" }
+    "api-network-inventory"    = { path_prefix = "/inventory", port = 8003, priority = 30, short_name = "inventory" }
+    "api-transformer-metering" = { path_prefix = "/f5", port = 8005, priority = 40, short_name = "f5" }
+  }
+
   # Same variables as docker-compose.yml, without any secret value.
   services = {
     "api-customer-consumption" = {
@@ -109,6 +117,7 @@ locals {
       cpu    = 256
       memory = 512
       environment = merge(local.db_environment, {
+        ROOT_PATH          = "/consumption"
         JWT_EXPIRE_MINUTES = "60"
         SIM_SEED           = "42"
         DEFECT_RATE        = "0.02"
@@ -120,24 +129,27 @@ locals {
       })
     }
     "api-control-center" = {
-      port        = 8002
-      cpu         = 256
-      memory      = 512
-      environment = local.db_environment
-      secrets     = merge(local.db_secrets, { JWT_SECRET = "${local.app_secret}:jwt_secret::" })
+      port   = 8002
+      cpu    = 256
+      memory = 512
+      environment = merge(local.db_environment, {
+        ROOT_PATH = "/control-center"
+        F5_URL    = "${module.alb.url}/f5" # F5 is reached through the load balancer
+      })
+      secrets = merge(local.db_secrets, { JWT_SECRET = "${local.app_secret}:jwt_secret::" })
     }
     "api-network-inventory" = {
       port        = 8003
       cpu         = 256
       memory      = 512
-      environment = local.db_environment
+      environment = merge(local.db_environment, { ROOT_PATH = "/inventory" })
       secrets     = merge(local.db_secrets, { JWT_SECRET = "${local.app_secret}:jwt_secret::" })
     }
     "api-transformer-metering" = {
       port        = 8005
       cpu         = 256
       memory      = 512
-      environment = merge(local.db_environment, { SIM_SEED = "42" })
+      environment = merge(local.db_environment, { ROOT_PATH = "/f5", SIM_SEED = "42" })
       secrets     = local.db_secrets
     }
   }
@@ -170,6 +182,22 @@ module "ecs" {
   secret_arns       = [module.rds.master_secret_arn, module.secrets.app_secret_arn]
   subnet_ids        = module.network.public_subnet_ids
   security_group_id = module.security.app_sg_id
+  target_group_arns = module.alb.target_group_arns
 
   tags = { Component = "ecs", Owner = "p1-backend" }
+
+  # The target groups must be attached to the listener before a service can use them.
+  depends_on = [module.alb]
+}
+
+module "alb" {
+  source = "../../modules/alb"
+
+  name              = local.name
+  vpc_id            = module.network.vpc_id
+  subnet_ids        = module.network.public_subnet_ids
+  security_group_id = module.security.alb_sg_id
+  routes            = local.routes
+
+  tags = { Component = "alb" }
 }

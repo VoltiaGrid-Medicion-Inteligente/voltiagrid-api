@@ -9,7 +9,7 @@ and reviewed like code.
 | File                     | Use                                                                       |
 | ------------------------ | ------------------------------------------------------------------------- |
 | `environments/local.bru` | APIs running on your machine (ports 8001, 8002, 8003)                     |
-| `environments/aws.bru`   | APIs behind the ALB; replace `REPLACE-WITH-ALB-DNS` when the stack exists |
+| `environments/aws.bru`   | APIs behind the ALB; replace `REPLACE-WITH-ALB-DNS` with the DNS name of `terraform output alb_url` (HTTP, no TLS in the pilot) |
 
 The `00-auth` folder runs first: it logs in with `POST /auth/token` and stores
 `customerToken` and `internalToken` for the rest of the requests. The passwords are

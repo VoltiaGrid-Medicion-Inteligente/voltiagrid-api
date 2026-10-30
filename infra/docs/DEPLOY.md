@@ -90,3 +90,39 @@ aws ecs describe-services --cluster voltiagrid-dev `
 ```
 
 `running` must equal `desired`, and `taskDef` ends with the revision just created.
+
+## 3. Load balancer and health checks (T-27.3)
+
+One internet-facing **Application Load Balancer** in the two public subnets, listener on port 80, one target group
+per service and a rule per path prefix (`infra/modules/alb`):
+
+| Path on the ALB | Service | Target group | Health check |
+|---|---|---|---|
+| `/consumption/*` | api-customer-consumption | `voltiagrid-dev-consumption` | `GET /health` on 8001, `200` |
+| `/control-center/*` | api-control-center | `voltiagrid-dev-control-center` | `GET /health` on 8002, `200` |
+| `/inventory/*` | api-network-inventory | `voltiagrid-dev-inventory` | `GET /health` on 8003, `200` |
+| `/f5/*` | api-transformer-metering | `voltiagrid-dev-f5` | `GET /health` on 8005, `200` |
+| anything else | — | — | JSON `404` from the listener |
+
+- The ALB does not remove the prefix. Each API runs with `ROOT_PATH=<prefix>` and answers both `<prefix>/health`
+  (through the ALB) and `/health` (container and target group health checks). Swagger works at `<prefix>/docs`.
+- The control center calls F5 through the ALB: `F5_URL=http://<alb>/f5`.
+- Health check every 15 s; a target is healthy after 2 good checks and removed after 3 bad ones.
+- HTTP only: the pilot has no domain name for a TLS certificate.
+
+Check (after section 2 with running tasks):
+
+```powershell
+$alb = terraform -chdir=infra/envs/dev output -raw alb_url
+Invoke-RestMethod "$alb/consumption/health"
+Invoke-RestMethod "$alb/control-center/health"
+Invoke-RestMethod "$alb/inventory/health"
+Invoke-RestMethod "$alb/f5/health"
+foreach ($tg in "consumption","control-center","inventory","f5") {
+  $arn = aws elbv2 describe-target-groups --names "voltiagrid-dev-$tg" --query "TargetGroups[0].TargetGroupArn" --output text
+  aws elbv2 describe-target-health --target-group-arn $arn --query "TargetHealthDescriptions[].TargetHealth.State" --output text
+}
+```
+
+Each `health` answers `status: ok`, and each target group prints `healthy`. Open `$alb/consumption/docs` in the browser
+to try the API, or use the Bruno environment `aws` (replace `REPLACE-WITH-ALB-DNS` with the DNS name of `$alb`).

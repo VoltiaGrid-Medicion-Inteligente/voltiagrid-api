@@ -51,3 +51,8 @@ output "task_definitions" {
   description = "Task definition ARN with its revision, per image."
   value       = module.ecs.task_definition_arns
 }
+
+output "alb_url" {
+  description = "Base URL of the APIs: <alb_url>/consumption, /control-center, /inventory, /f5."
+  value       = module.alb.url
+}
