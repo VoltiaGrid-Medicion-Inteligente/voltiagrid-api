@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
 
+from app.core.database_url import database_url_from_env
+
 VALID_MODES = ("dev", "full")
 METERS_BY_MODE = {"dev": 200, "full": 5500}
 
@@ -34,9 +36,9 @@ def build_settings(args):
     if not 0 <= defect_rate <= 1:
         raise ValueError(f"DEFECT_RATE debe estar entre 0 y 1, pero llegó '{defect_rate}'")
 
-    database_url = first_not_none(args.database_url, os.getenv("DATABASE_URL"))
+    database_url = first_not_none(args.database_url, database_url_from_env())
     if database_url is None:
-        raise ValueError("Falta DATABASE_URL (variable de entorno, .env 0 --database-url)")
+        raise ValueError("DATABASE_URL is missing (environment, .env or --database-url; or DB_HOST, DB_USER, DB_PASSWORD)")
     
     return SeedSettings(
         seed=seed,
