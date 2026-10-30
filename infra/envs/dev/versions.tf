@@ -6,7 +6,12 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.80"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
+
 
   # State in the bucket created by infra/bootstrap (ADR-012). The bucket name has the account id,
   # so it is passed at init time:

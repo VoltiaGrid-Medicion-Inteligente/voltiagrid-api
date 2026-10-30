@@ -50,3 +50,11 @@ module "rds" {
 
   tags = { Component = "rds" }
 }
+
+module "secrets" {
+  source = "../../modules/secrets"
+
+  name = local.name
+
+  tags = { Component = "secrets" }
+}

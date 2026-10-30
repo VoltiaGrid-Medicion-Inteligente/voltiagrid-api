@@ -16,7 +16,9 @@ infra/
     ├── data_lake/    # raw, clean and curated buckets, policies for roles (US-23)
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
     ├── rds/          # PostgreSQL 16, private, encrypted, backups, password in Secrets Manager (US-25)
+    ├── secrets/      # JWT secret and demo passwords in Secrets Manager (US-25)
     └── security/     # One Security Group per component, least privilege
+```
 ```
 
 ## Prerequisites (Windows, once)
