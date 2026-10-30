@@ -75,3 +75,12 @@ module "ecr" {
 
   tags = { Component = "ecr" }
 }
+
+module "logs" {
+  source = "../../modules/logs"
+
+  name     = local.name
+  services = local.images
+
+  tags = { Component = "logs" }
+}
