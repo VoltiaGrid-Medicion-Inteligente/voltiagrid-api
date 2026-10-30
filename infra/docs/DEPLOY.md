@@ -50,3 +50,43 @@ aws ecr describe-images --repository-name voltiagrid/api-control-center --query 
 
 If PowerShell says the script "cannot be loaded because running scripts is disabled", allow local scripts for
 your user once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+## 2. ECS cluster, task definitions and services (T-27.2)
+
+Created by `infra/modules/ecs` (cluster `voltiagrid-dev`):
+
+| Task definition family | Service | Port | Size | Secrets injected |
+|---|---|---|---|---|
+| `voltiagrid-dev-api-customer-consumption` | yes | 8001 | 0.25 vCPU / 0.5 GB | DB user and password, JWT secret, demo passwords |
+| `voltiagrid-dev-api-control-center` | yes | 8002 | 0.25 vCPU / 0.5 GB | DB user and password, JWT secret |
+| `voltiagrid-dev-api-network-inventory` | yes | 8003 | 0.25 vCPU / 0.5 GB | DB user and password, JWT secret |
+| `voltiagrid-dev-api-transformer-metering` | yes | 8005 | 0.25 vCPU / 0.5 GB | DB user and password |
+| `voltiagrid-dev-migrate-seed` | no (one-off task) | — | 0.5 vCPU / 1 GB | DB user and password |
+
+- **Versioned deployment.** The image in every task definition is `<repository>:<image_tag>`. Each apply with a new
+  `image_tag` registers a new revision (`...:1`, `...:2`) and the service rolls to it. If the new tasks never become
+  healthy, the deployment circuit breaker rolls back to the previous revision.
+- **Roles.** The *execution role* pulls from ECR, writes logs and reads only the two secrets. The *task role*
+  (what the code may do in AWS) has no permissions: the APIs call no AWS service.
+- **Network.** Public subnets with a public IP, Security Group `voltiagrid-dev-app` (inbound only from the ALB).
+- Each container has the same health check as its Dockerfile (`GET /health` on its port).
+
+Deploy a tag (after publishing it, section 1):
+
+```powershell
+$tag = git rev-parse --short HEAD
+terraform -chdir=infra/envs/dev apply -var image_tag=$tag
+```
+
+Without `-var image_tag`, an apply with running tasks stops with a clear message: use `-var desired_count=0`
+to create everything without tasks.
+
+Check:
+
+```powershell
+aws ecs describe-services --cluster voltiagrid-dev `
+  --services api-customer-consumption api-control-center api-network-inventory api-transformer-metering `
+  --query "services[].{service:serviceName,running:runningCount,desired:desiredCount,taskDef:taskDefinition}" --output table
+```
+
+`running` must equal `desired`, and `taskDef` ends with the revision just created.

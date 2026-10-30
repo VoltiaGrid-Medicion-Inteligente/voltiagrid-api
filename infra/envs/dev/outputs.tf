@@ -37,3 +37,17 @@ output "app_secret_arn" {
 output "ecr_repository_urls" {
   value = module.ecr.repository_urls
 }
+
+output "ecs_cluster" {
+  value = module.ecs.cluster_name
+}
+
+output "app_security_group_id" {
+  description = "Security Group for one-off tasks (migrate-seed)."
+  value       = module.security.app_sg_id
+}
+
+output "task_definitions" {
+  description = "Task definition ARN with its revision, per image."
+  value       = module.ecs.task_definition_arns
+}

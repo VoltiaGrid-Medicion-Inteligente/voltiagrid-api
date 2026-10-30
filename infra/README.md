@@ -16,6 +16,7 @@ infra/
     ├── admin_instance/ # EC2 in a private subnet, Session Manager only (US-22)
     ├── data_lake/    # raw, clean and curated buckets, policies for roles (US-23)
     ├── ecr/          # One image repository per image, immutable tags (US-27)
+    ├── ecs/          # Fargate cluster, task definitions, services, IAM roles (US-27)
     ├── logs/         # One CloudWatch log group per service, 7-day retention (US-27)
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
     ├── rds/          # PostgreSQL 16, private, encrypted, backups, password in Secrets Manager (US-25)
