@@ -18,6 +18,7 @@ from pydantic import AwareDatetime, BaseModel, Field
 from app.api.common import AUTH_ERRORS, ErrorResponse, Health, Principal, require_internal
 from app.api.control_center.f5_client import F5Unavailable
 from app.api.control_center.service import ControlCenterService, InvalidRange, get_service
+from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 
 F5_DOWN = {502: {"model": ErrorResponse, "description": "F5 transformer metering API is not available"}}
@@ -26,6 +27,7 @@ app = FastAPI(
     title="VoltiaGrid control center API",
     version="0.2.0",
     description="Load per transformer every 15 minutes and overload alerts (RF-07).",
+    root_path=get_settings().root_path,  # /control-center behind the load balancer (T-27.3)
 )
 register_error_handlers(app)
 
