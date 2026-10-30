@@ -50,3 +50,15 @@ variable "db_instance_class" {
   type        = string
   default     = "db.t4g.micro"
 }
+
+variable "image_tag" {
+  description = "Image tag to deploy: the short git commit pushed by infra/scripts/publish-images.ps1."
+  type        = string
+  default     = "none"
+}
+
+variable "desired_count" {
+  description = "Tasks per ECS service. 0 creates everything without running tasks (first apply of a window)."
+  type        = number
+  default     = 1
+}
