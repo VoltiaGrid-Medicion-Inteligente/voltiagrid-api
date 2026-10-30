@@ -2,6 +2,15 @@
 
 locals {
   name = "voltiagrid-${var.environment}"
+
+  # Images deployed to ECS (US-27). Same names as the local images voltiagrid/<name>:local.
+  images = [
+    "api-customer-consumption",
+    "api-control-center",
+    "api-network-inventory",
+    "api-transformer-metering",
+    "migrate-seed",
+  ]
 }
 
 module "network" {
@@ -57,4 +66,12 @@ module "secrets" {
   name = local.name
 
   tags = { Component = "secrets" }
+}
+
+module "ecr" {
+  source = "../../modules/ecr"
+
+  repositories = local.images
+
+  tags = { Component = "ecr" }
 }
