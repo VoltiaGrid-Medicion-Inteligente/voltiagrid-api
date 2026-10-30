@@ -28,3 +28,8 @@ output "rds_master_secret_arn" {
   description = "Secret with the RDS master user and password, managed by RDS."
   value       = module.rds.master_secret_arn
 }
+
+output "app_secret_arn" {
+  description = "Secret with the JWT secret and the demo passwords."
+  value       = module.secrets.app_secret_arn
+}

@@ -10,7 +10,10 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 
+from app.core.database_url import require_database_url
+
 load_dotenv()
+
 
 
 def _required(name: str) -> str:
@@ -32,7 +35,7 @@ class Settings:
 
     @property
     def database_url(self) -> str:
-        return _required("DATABASE_URL")
+        return require_database_url()
 
     @property
     def jwt_secret(self) -> str:

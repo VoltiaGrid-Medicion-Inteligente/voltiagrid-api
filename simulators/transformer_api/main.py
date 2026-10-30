@@ -20,6 +20,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
+from app.core.database_url import database_url_from_env
 from simulators.common.inventory import Inventory, load_from_db, with_volume
 from simulators.transformer_api.losses import LossStore
 from simulators.transformer_api.service import delivered_series
@@ -44,10 +45,11 @@ def get_inventory() -> Inventory:
     synthetic = int(os.getenv("SIM_SYNTHETIC_METERS") or "0")
     if synthetic:
         return with_volume(Inventory({}), synthetic)
-    url = os.getenv("DATABASE_URL")
+    url = database_url_from_env()
     if not url:
-        raise RuntimeError("DATABASE_URL is missing (or set SIM_SYNTHETIC_METERS)")
+        raise RuntimeError("DATABASE_URL is missing (or DB_HOST, DB_USER, DB_PASSWORD, or set SIM_SYNTHETIC_METERS)")
     return load_from_db(url)
+
 
 
 _store = LossStore()
