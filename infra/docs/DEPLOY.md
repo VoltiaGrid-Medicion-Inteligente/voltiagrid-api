@@ -126,3 +126,37 @@ foreach ($tg in "consumption","control-center","inventory","f5") {
 
 Each `health` answers `status: ok`, and each target group prints `healthy`. Open `$alb/consumption/docs` in the browser
 to try the API, or use the Bruno environment `aws` (replace `REPLACE-WITH-ALB-DNS` with the DNS name of `$alb`).
+
+## 4. Database and full deployment window (T-25.3)
+
+The order of a full window, from nothing to the APIs answering through the ALB with RDS data:
+
+```powershell
+# 0. Session and state
+aws sso login --profile voltia-admin
+$env:AWS_PROFILE = "voltia-admin"
+$bucket = terraform -chdir=infra/bootstrap output -raw state_bucket
+terraform -chdir=infra/envs/dev init -backend-config="bucket=$bucket"
+
+# 1. Infrastructure without running tasks (network, RDS, secrets, ECR, logs, ALB, ECS definitions): 10-15 min
+terraform -chdir=infra/envs/dev apply -var desired_count=0
+
+# 2. Images of the current commit
+.\infra\scripts\publish-images.ps1
+$tag = git rev-parse --short HEAD
+
+# 3. Task definitions with that tag, still no tasks; then migrations and seed in RDS
+terraform -chdir=infra/envs/dev apply -var image_tag=$tag -var desired_count=0
+.\infra\scripts\run-task.ps1 -Job migrate-seed
+.\infra\scripts\run-task.ps1 -Job hashes
+
+# 4. Start the services: 1 task each
+terraform -chdir=infra/envs/dev apply -var image_tag=$tag
+
+# 5. Check (sections 2 and 3), test with Bruno, look at the logs (LOGS.md)
+
+# 6. End of the window: destroy everything in dev
+terraform -chdir=infra/envs/dev destroy -var image_tag=$tag
+```
+
+Details of the database steps and the comparison with local data: `RDS.md`.
