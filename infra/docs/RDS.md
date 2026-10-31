@@ -4,19 +4,19 @@ Terraform: `infra/modules/rds`, used by `infra/envs/dev`.
 
 ## Configuration (T-25.1)
 
-| Setting         | Value                                                                       | Why                                                                                          |
-| --------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Engine          | PostgreSQL 16                                                               | Same major version as `docker-compose.yml` (`postgres:16`)                                   |
-| Instance        | `db.t4g.micro` (2 vCPU burstable, 1 GB)                                     | Cheapest Graviton class; enough for the dev windows (docs: Costs)                            |
-| Storage         | 20 GB gp3, encrypted (AWS managed key)                                      | Minimum size; encryption at rest has no extra cost                                           |
-| Network         | DB subnet group with the two private subnets, `publicly_accessible = false` | Never reachable from the internet                                                            |
-| Security Group  | 5432 only from the app tasks and the admin instance                         | T-21.2                                                                                       |
-| SSL             | Parameter `rds.force_ssl = 1`                                               | The server refuses connections without SSL                                                   |
-| Master password | `manage_master_user_password = true`                                        | RDS creates it and keeps it in Secrets Manager; it is not in the code, the plan or the state |
-| Backups         | Automatic, every day at 06:00 UTC, kept **7 days**, point-in-time restore   | Requirement of US-25                                                                         |
-| Maintenance     | Sundays 07:30 UTC, minor versions applied automatically                     | Security patches without manual work                                                         |
-| Availability    | Single-AZ                                                                   | Pilot; Multi-AZ doubles the price (docs: Alternatives)                                       |
-| Destroy in dev  | No final snapshot, no deletion protection                                   | dev is rebuilt by the seed in every window                                                   |
+| Setting | Value | Why |
+|---|---|---|
+| Engine | PostgreSQL 16 | Same major version as `docker-compose.yml` (`postgres:16`) |
+| Instance | `db.t4g.micro` (2 vCPU burstable, 1 GB) | Cheapest Graviton class; enough for the dev windows (docs: Costs) |
+| Storage | 20 GB gp3, encrypted (AWS managed key) | Minimum size; encryption at rest has no extra cost |
+| Network | DB subnet group with the two private subnets, `publicly_accessible = false` | Never reachable from the internet |
+| Security Group | 5432 only from the app tasks and the admin instance | T-21.2 |
+| SSL | Parameter `rds.force_ssl = 1` | The server refuses connections without SSL |
+| Master password | `manage_master_user_password = true` | RDS creates it and keeps it in Secrets Manager; it is not in the code, the plan or the state |
+| Backups | Automatic, every day at 06:00 UTC, kept **7 days**, point-in-time restore | Requirement of US-25 |
+| Maintenance | Sundays 07:30 UTC, minor versions applied automatically | Security patches without manual work |
+| Availability | Single-AZ | Pilot; Multi-AZ doubles the price (docs: Alternatives) |
+| Destroy in dev | No final snapshot, no deletion protection | dev is rebuilt by the seed in every window |
 
 ## Private: a connection from the internet is rejected
 
@@ -75,3 +75,55 @@ Read the demo passwords to test the APIs (do not paste them anywhere):
 $app = terraform -chdir=infra/envs/dev output -raw app_secret_arn
 aws secretsmanager get-secret-value --secret-id $app --query SecretString --output text
 ```
+
+## Migrations and seed against RDS (T-25.3)
+
+RDS is private, so the migrations and the seed run **inside the VPC** as a one-off ECS task with the
+`migrate-seed` image (same command as in `docker-compose.yml`: `alembic upgrade head` and
+`python -m seed --mode dev --seed 42 --defect-rate 0.02`). The task reads the credentials from Secrets Manager
+and connects with SSL like the APIs.
+
+```powershell
+.\infra\scripts\run-task.ps1 -Job migrate-seed
+```
+
+The script starts the task, waits until it stops, prints its log from CloudWatch and fails if the exit code is not 0.
+Running it twice creates nothing new: the seed upserts by natural key.
+
+### Same data as local
+
+`python -m seed.hashes` prints the row count and an md5 of every F4 table. Internal ids are left out and foreign
+keys are replaced by natural keys, so two databases with the same seed print the same lines.
+
+```powershell
+# RDS (one-off task, prints in the log)
+.\infra\scripts\run-task.ps1 -Job hashes
+
+# Local (docker compose up -d db; make seed or migrate-seed already ran with the same MODE, SEED and DEFECT_RATE)
+python -m seed.hashes
+```
+
+Expected for `MODE=dev`, `SEED=42`, `DEFECT_RATE=0.02` (same on both sides):
+
+```
+circuit           1 rows  3234d136822988164eb6b0fb81caa3d8
+transformer       4 rows  e90475efd52951fff2b94589c8fda28c
+customer        200 rows  4a4eabaf91708921e63f5a42b8dddcf5
+contract        200 rows  a1c9aa3a23955f05e7731313c4ec9bc8
+meter           200 rows  0e9651449fab6e607d607e9c996fe466
+TOTAL                     f526449b043a7f67d5f7711cf29e11bd
+```
+
+If your local database was changed by hand (for example through the inventory API), recreate it first:
+`docker compose down -v`, `docker compose up -d db`, `alembic upgrade head`, `python -m seed --mode dev --seed 42 --defect-rate 0.02`.
+
+### Evidence of the window
+
+| Check | Result |
+|---|---|
+| `run-task.ps1 -Job migrate-seed` exit code | — |
+| RDS `TOTAL` | — |
+| Local `TOTAL` | — |
+| Both equal | — |
+| Connection from the laptop to RDS refused (`Test-NetConnection`) | — |
+| API through the ALB answers with data from RDS (`GET /consumption/me/consumption/daily`) | — |
