@@ -3,3 +3,4 @@
 pytest>=7.0
 pre-commit>=3.5
 ruff==0.6.9
+boto3>=1.35  # scripts/check_tags.py --aws (US-28)
