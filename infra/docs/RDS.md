@@ -121,9 +121,9 @@ If your local database was changed by hand (for example through the inventory AP
 
 | Check | Result |
 |---|---|
-| `run-task.ps1 -Job migrate-seed` exit code | — |
-| RDS `TOTAL` | — |
-| Local `TOTAL` | — |
-| Both equal | — |
-| Connection from the laptop to RDS refused (`Test-NetConnection`) | — |
-| API through the ALB answers with data from RDS (`GET /consumption/me/consumption/daily`) | — |
+| `run-task.ps1 -Job migrate-seed` exit code | 0 |
+| RDS `TOTAL` | `f526449b043a7f67d5f7711cf29e11bd` |
+| Local `TOTAL` | `f526449b043a7f67d5f7711cf29e11bd` |
+| Both equal | Yes (circuit 1, transformer 4, customer 200, contract 200, meter 200 rows) |
+| Connection from the laptop to RDS refused (`Test-NetConnection`) | ... |
+| API through the ALB answers with data from RDS (`GET /consumption/me/consumption/daily`) | ... |
