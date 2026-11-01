@@ -11,7 +11,8 @@ infra/
 ├── envs/
 │   ├── data/         # Persistent stack: data lake buckets (US-23). Not destroyed after a window.
 │   └── dev/          # Ephemeral stack: network, endpoints, admin instance, RDS, ECS, ALB...
-├── scripts/          # PowerShell helpers: publish images (US-27)
+├── scripts/          # PowerShell: publish images, run one-off tasks, deploy and destroy a window
+├── docs/             # How each part was built and checked (review, data lake, RDS, deploy, logs, tags...)
 └── modules/          # Reusable pieces used by the stacks
     ├── admin_instance/ # EC2 in a private subnet, Session Manager only (US-22)
     ├── alb/          # Load balancer, one target group per API, routing by path (US-27)
@@ -107,6 +108,15 @@ aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$vpc" --query "Route
 ```
 
 The private table must show only `local` and the `pl-...` route to `vpce-...`, and no `0.0.0.0/0`.
+
+## Whole window in two commands (US-28)
+
+```powershell
+.\infra\scripts\deploy.ps1 -AutoApprove    # from nothing to the APIs answering through the ALB
+.\infra\scripts\destroy.ps1 -AutoApprove   # everything in dev deleted and checked
+```
+
+Details: `docs/DESTROY-RECREATE.md`.
 
 ## Tags
 
