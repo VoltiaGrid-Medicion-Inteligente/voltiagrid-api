@@ -17,8 +17,9 @@ resource "aws_db_parameter_group" "this" {
   description = "VoltiaGrid: SSL required"
 
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
   }
 
   # Log every statement slower than 1 second (CloudWatch metrics, US-63).
