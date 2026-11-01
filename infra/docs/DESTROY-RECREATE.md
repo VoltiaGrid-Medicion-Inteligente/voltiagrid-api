@@ -43,31 +43,31 @@ terraform -chdir=infra/envs/dev plan -var "image_tag=$(git rev-parse --short HEA
 
 ## Result
 
-- **Date:** —
-- **Run by:** —
-- **Commit:** —
+- **Date:** 2026-11-01
+- **Run by:** Mary Muñoz
+- **Commit:** a2f7026
 
 | Step | Round 1 (min) | Round 2 (min) |
 |---|---|---|
-| 1. terraform init | — | — |
-| 2. infrastructure, no tasks | — | — |
-| 3. images to ECR | — | — |
-| 4a. task definitions | — | — |
-| 4b. migrations and seed in RDS | — | — |
-| 5. services running | — | — |
-| 6. health through the ALB and tags | — | — |
-| **Total deploy** | — | — |
-| `terraform destroy` | — | — |
+| 1. terraform init | 0.3 | 0.2 |
+| 2. infrastructure, no tasks | 10 | 10 |
+| 3. images to ECR | 4.8 | 5.9 |
+| 4a. task definitions | 0.8 | 0.5 |
+| 4b. migrations and seed in RDS | 1.7 | 1.3 |
+| 5. services running | 1.8 | 1.4 |
+| 6. health through the ALB and tags | 0.8 | 0.4 |
+| **Total deploy** | **20.2** | **19.7** |
+| `terraform destroy` | 7 | 5.9 |
 
 | Check | Result |
 |---|---|
-| Round 1: the 4 `/health` answer `ok` through the ALB | — |
-| Round 1: `check_tags` says `OK` | — |
-| Destroy: `destroy.ps1` ends with *Nothing billable left in dev* | — |
-| Round 2: same as round 1, without touching anything by hand | — |
-| `plan -detailed-exitcode` after round 2: *No changes* | — |
-| Final destroy: nothing left | — |
-| Manual steps needed | none / — |
+| Round 1: the 4 `/health` answer `ok` through the ALB | Yes (4/4) |
+| Round 1: `check_tags` says `OK` | Yes (128 resources, 0 problems) |
+| Destroy: `destroy.ps1` ends with *Nothing billable left in dev* | Yes |
+| Round 2: same as round 1, without touching anything by hand | Yes (4/4 health, tags OK: 211 resources, 0 problems) |
+| `plan -var image_tag=a2f7026` after round 2: *No changes* | Yes |
+| Final destroy: nothing left | Yes (*Nothing billable left in dev*) |
+| Manual steps needed | none |
 
 Paste the console output of both rounds and both destroys in the pull request.
 
