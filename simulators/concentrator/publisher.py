@@ -6,12 +6,9 @@ from typing import Protocol
 import pika
 from pika.exceptions import AMQPConnectionError
 
-log = logging.getLogger(__name__)
+from ingestion.topology import EXCHANGE, declare_topology
 
-EXCHANGE = "readings"
-DEAD_LETTER_EXCHANGE = "readings.dlx"
-DEAD_LETTER_QUEUE = "readings.dead"
-QUEUES = {"readings.live": "readings.live", "readings.resend": "readings.resend"}
+log = logging.getLogger(__name__)
 
 
 class Publisher(Protocol):
@@ -29,20 +26,6 @@ class MemoryPublisher:
 
     def close(self) -> None:
         pass
-
-
-def declare_topology(channel) -> None:
-    channel.exchange_declare(exchange=EXCHANGE, exchange_type="topic", durable=True)
-    channel.exchange_declare(exchange=DEAD_LETTER_EXCHANGE, exchange_type="fanout", durable=True)
-    channel.queue_declare(queue=DEAD_LETTER_QUEUE, durable=True)
-    channel.queue_bind(queue=DEAD_LETTER_QUEUE, exchange=DEAD_LETTER_EXCHANGE)
-    for queue, routing_key in QUEUES.items():
-        channel.queue_declare(
-            queue=queue,
-            durable=True,
-            arguments={"x-dead-letter-exchange": DEAD_LETTER_EXCHANGE},
-        )
-        channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=routing_key)
 
 
 def message_properties(message: dict) -> pika.BasicProperties:
