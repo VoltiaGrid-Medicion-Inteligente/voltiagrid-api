@@ -10,6 +10,9 @@ venv/
 data/raw/*
 !data/raw/informations_households.csv
 
+# Local data lake written by the F3 consumer (US-29)
+lake/
+
 # Terraform (infra/)
 .terraform/
 *.tfstate

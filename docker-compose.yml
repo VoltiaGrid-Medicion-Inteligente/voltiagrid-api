@@ -98,6 +98,33 @@ services:
       migrate-seed:
         condition: service_completed_successfully
 
+  # Reads both reading queues and stores every message in the raw layer before the ACK (US-29).
+  # Locally the raw "bucket" is the folder lake/raw of this repo (LAKE_DIR in .env), so the Spark jobs of
+  # voltiagrid-data can read it. More consumers during a long resend: docker compose up -d --scale f3-consumer=3
+  f3-consumer:
+    image: voltiagrid/f3-consumer:local
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/%2F
+      RAW_DIR: /lake/raw
+      CONSUMER_PREFETCH: ${CONSUMER_PREFETCH:-100}
+    volumes:
+      - ${LAKE_DIR:-./lake}:/lake
+    networks: [voltia]
+    restart: unless-stopped
+    healthcheck:
+      # No HTTP port: healthy = it can reach the broker it consumes from.
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('rabbitmq', 5672), 2)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   api-customer-consumption:
     image: voltiagrid/api-customer-consumption:local
     build:
