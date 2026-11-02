@@ -83,9 +83,34 @@ source=f3/dataset=readings/ingest_date=YYYY-MM-DD/ingest_hour=HH/<concentrator>_
 | `RABBITMQ_URL` | from `.env` | Broker |
 | `RAW_DIR` | `lake/raw` (`/lake/raw` in the container) | Folder that plays the raw bucket |
 | `CONSUMER_PREFETCH` | `100` | Unacknowledged messages per consumer |
+| `RAW_BATCH_SIZE` | `50` | Messages written together before one ACK (never more than the prefetch) |
+| `RAW_BATCH_SECONDS` | `2` | Longest time a message waits for its batch to fill |
+| `RAW_BUCKET` | empty | In AWS: the raw bucket. When set, `RAW_DIR` is ignored and objects go to S3 |
 
 ```powershell
 docker compose up -d --build f3-consumer
 docker compose logs -f f3-consumer          # "stats: {'stored': ..., 'readings': ...}" every minute
 python -m ingestion --exit-when-idle 30     # from the terminal: drain the queues and stop
 ```
+
+## Batch writes (T-29.3)
+
+Writing and acknowledging one message at a time makes a 48,000-reading resend wait on 1,000 round trips to S3. The
+consumer groups them instead:
+
+1. Each valid message waits in memory, **unacknowledged**, until there are `RAW_BATCH_SIZE` of them or the oldest
+   waited `RAW_BATCH_SECONDS`.
+2. The batch is written in parallel (8 threads; each object is still its own file, with the key above).
+3. When every write succeeded, a single `basic_ack(multiple=True)` on the last delivery tag acknowledges the whole
+   batch. If some writes failed, the stored ones are acknowledged one by one and the failed ones go back to the queue
+   with `basic_nack(requeue=True)`.
+
+Why nothing is lost: a message is acknowledged only after its own write returned. If the consumer dies with a batch
+in memory, those messages were never acknowledged and RabbitMQ delivers them again. On `docker compose stop`
+(SIGTERM) the consumer writes and acknowledges the batch it holds before closing.
+
+The batch can never be bigger than the prefetch: with fewer unacknowledged messages allowed than the batch size,
+RabbitMQ would stop delivering and the batch would only flush by time. `configure` lowers the batch size if needed.
+
+In AWS the same code writes to S3 when `RAW_BUCKET` is set (`S3RawWriter`, `boto3`). The task role needs only
+`s3:PutObject` on the raw bucket (policy `datalake-ingest`, no delete).

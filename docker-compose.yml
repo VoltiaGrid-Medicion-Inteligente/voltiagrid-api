@@ -110,6 +110,8 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/%2F
       RAW_DIR: /lake/raw
       CONSUMER_PREFETCH: ${CONSUMER_PREFETCH:-100}
+      RAW_BATCH_SIZE: ${RAW_BATCH_SIZE:-50}
+      RAW_BATCH_SECONDS: ${RAW_BATCH_SECONDS:-2}
     volumes:
       - ${LAKE_DIR:-./lake}:/lake
     networks: [voltia]
