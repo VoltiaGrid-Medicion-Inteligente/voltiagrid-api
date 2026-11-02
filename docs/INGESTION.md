@@ -56,3 +56,36 @@ Any reading still waiting in those queues is lost, so do it in a local stack, ne
 RabbitMQ when `RABBITMQ_TEST_URL` is set (the CI starts one): declaring twice is harmless, a rejected message reaches
 `readings.dead`, and a message never acknowledged reaches `readings.dead` after the delivery limit. The fixture
 deletes the queues before and after each test, which is why it never uses `RABBITMQ_URL` from `.env`.
+
+## Consumer (T-29.2)
+
+`ingestion/consumer.py`, run with `python -m ingestion` or as the `f3-consumer` service of `docker-compose.yml`.
+
+| Rule | How |
+|---|---|
+| ACK only after the message is in raw | `basic_ack` is called after the write returns. If the consumer dies before, RabbitMQ delivers the message again. |
+| Prefetch | `basic_qos(prefetch_count=CONSUMER_PREFETCH)`, default 100: one consumer never holds more than 100 unacknowledged messages, so a crash returns at most 100 and a long resend is shared between consumers. |
+| Invalid message | Not JSON or not the contract (`reading_batch.v1.json`): `basic_nack(requeue=False)`, it goes to `readings.dead` and does not block the queue. |
+| Storage fails | 3 attempts (1 s and 2 s apart), then `basic_nack(requeue=True)`. After 5 deliveries RabbitMQ moves it to `readings.dead`. |
+| Exact redelivery | Same `message_id` already stored by this process: ACK without writing again. After a restart a second copy can land in raw; Spark removes exact duplicates (meter, interval, sequence) before clean. |
+
+Each message is stored byte for byte under the key of the *Data lake layout* page:
+
+```
+source=f3/dataset=readings/ingest_date=YYYY-MM-DD/ingest_hour=HH/<concentrator>_<sequence>.json
+```
+
+`ingest_date` and `ingest_hour` are the UTC time it was stored, so a resend of old readings never overwrites anything
+(ADR-007). Locally the raw bucket is the folder `lake/raw` of this repo (`LAKE_DIR` in `.env`, ignored by git).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `RABBITMQ_URL` | from `.env` | Broker |
+| `RAW_DIR` | `lake/raw` (`/lake/raw` in the container) | Folder that plays the raw bucket |
+| `CONSUMER_PREFETCH` | `100` | Unacknowledged messages per consumer |
+
+```powershell
+docker compose up -d --build f3-consumer
+docker compose logs -f f3-consumer          # "stats: {'stored': ..., 'readings': ...}" every minute
+python -m ingestion --exit-when-idle 30     # from the terminal: drain the queues and stop
+```
