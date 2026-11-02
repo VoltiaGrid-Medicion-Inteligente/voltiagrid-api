@@ -29,8 +29,18 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U voltia -d voltiagrid_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13
+        env:
+          RABBITMQ_DEFAULT_USER: voltia
+          RABBITMQ_DEFAULT_PASS: voltia
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://voltia:voltia@localhost:5432/voltiagrid_test
+      RABBITMQ_TEST_URL: amqp://voltia:voltia@localhost:5672/%2F
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
