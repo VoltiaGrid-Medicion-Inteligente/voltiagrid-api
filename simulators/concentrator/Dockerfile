@@ -24,6 +24,7 @@ COPY --from=build /opt/venv /opt/venv
 
 WORKDIR /app
 COPY app ./app
+COPY ingestion ./ingestion
 COPY seed ./seed
 COPY simulators ./simulators
 

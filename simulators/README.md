@@ -33,7 +33,7 @@ python -m simulators.concentrator --outage-meters 1000 --outage-hours 24 --ticks
 ```
 
 - Message contract: `simulators/concentrator/schema/reading_batch.v1.json` (JSON Schema). Every message is validated before it is published.
-- RabbitMQ: exchange `readings` (topic), queues `readings.live` and `readings.resend`, dead letters to `readings.dead`. Persistent messages, publisher confirms, `mandatory=True`.
+- RabbitMQ: exchange `readings` (topic), quorum queues `readings.live` and `readings.resend`, dead letters to `readings.dead`. Persistent messages, publisher confirms, `mandatory=True`. The topology is declared in `ingestion/topology.py` and explained in `docs/INGESTION.md`.
 - Defects (rate `DEFECT_RATE`, default 0.02): gaps, missing days, duplicates with a different value and a higher `reading_seq`, skewed clocks, nulls and out-of-range values.
 - Web console: http://localhost:15672 (user and password from `.env`) to see the queues fill.
 

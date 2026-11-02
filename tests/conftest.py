@@ -106,3 +106,33 @@ def control_center_app(f5_test_client):
     yield app
     app.dependency_overrides.pop(get_repository, None)
     app.dependency_overrides.pop(get_f5_client, None)
+
+
+@pytest.fixture
+def rabbitmq_url():
+    """A RabbitMQ only for tests (US-29). Set RABBITMQ_TEST_URL to run these tests; the CI sets it.
+
+    The fixture deletes the reading queues before and after each test, so never point it at a broker with
+    data you want to keep (that is why it does not use RABBITMQ_URL from .env).
+    """
+    url = os.getenv("RABBITMQ_TEST_URL")
+    if not url:
+        pytest.skip("RABBITMQ_TEST_URL not set")
+    import pika
+    from pika.exceptions import AMQPConnectionError
+
+    from ingestion.topology import BINDINGS, DEAD_LETTER_QUEUE
+
+    def drop_queues():
+        connection = pika.BlockingConnection(pika.URLParameters(url))
+        channel = connection.channel()
+        for queue in [*BINDINGS, DEAD_LETTER_QUEUE]:
+            channel.queue_delete(queue=queue)
+        connection.close()
+
+    try:
+        drop_queues()
+    except AMQPConnectionError:
+        pytest.skip("RabbitMQ not reachable at RABBITMQ_TEST_URL")
+    yield url
+    drop_queues()

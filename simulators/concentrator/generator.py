@@ -4,13 +4,11 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+from ingestion.topology import LIVE_ROUTING_KEY, RESEND_ROUTING_KEY
 from seed.defects import DefectCatalog, apply_defects, should_skip_day
 from simulators.common.consumption import HALF_HOUR, half_hour_kwh
 from simulators.common.inventory import Inventory, concentrator_id
 from simulators.concentrator.contract import SCHEMA_VERSION
-
-LIVE_ROUTING_KEY = "readings.live"
-RESEND_ROUTING_KEY = "readings.resend"
 
 
 def _rng(*parts) -> random.Random:
