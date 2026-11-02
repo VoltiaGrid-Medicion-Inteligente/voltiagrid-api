@@ -1,3 +1,14 @@
+"""Where the consumer stores each F3 message in the raw layer (US-29).
+
+Key, as in the *Data lake layout* page of voltiagrid-docs:
+
+    source=f3/dataset=readings/ingest_date=YYYY-MM-DD/ingest_hour=HH/<concentrator>_<sequence>.json
+
+ingest_date and ingest_hour are the UTC time the message was stored, never the time inside the message, so a
+resend of old readings lands in today's partition and nothing is overwritten (ADR-007). The body is stored
+byte for byte as it arrived.
+"""
+
 import os
 import tempfile
 from datetime import datetime, timezone
@@ -17,6 +28,22 @@ def object_key(message: dict, stored_at: datetime) -> str:
 
 class RawWriter(Protocol):
     def write(self, key: str, body: bytes) -> None: ...
+
+
+class S3RawWriter:
+    """Raw layer in the S3 raw bucket (AWS). Credentials come from the task role or AWS_PROFILE, never from code."""
+
+    def __init__(self, bucket: str, client=None):
+        if client is None:
+            import boto3
+
+            client = boto3.client("s3")
+        self.bucket = bucket
+        self.client = client
+
+    def write(self, key: str, body: bytes) -> None:
+        # S3 never shows a half-written object: put_object either stores all of it or nothing.
+        self.client.put_object(Bucket=self.bucket, Key=key, Body=body, ContentType="application/json")
 
 
 class LocalRawWriter:

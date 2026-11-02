@@ -77,7 +77,7 @@ def log():
 
 
 def make_consumer(writer):
-    return ReadingConsumer(writer, clock=lambda: STORED_AT, sleep=lambda s: None)
+    return ReadingConsumer(writer, batch_size=1, clock=lambda: STORED_AT, sleep=lambda s: None)
 
 
 def test_object_key_uses_the_storage_time_not_the_reading_time():

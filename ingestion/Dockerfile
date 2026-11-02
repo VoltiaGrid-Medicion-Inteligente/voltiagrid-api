@@ -29,5 +29,6 @@ COPY simulators ./simulators
 
 USER consumer
 
-# Configuration from environment variables: RABBITMQ_URL, RAW_DIR, CONSUMER_PREFETCH
+# Configuration from environment variables: RABBITMQ_URL, RAW_DIR or RAW_BUCKET, CONSUMER_PREFETCH,
+# RAW_BATCH_SIZE, RAW_BATCH_SECONDS
 CMD ["python", "-m", "ingestion"]
