@@ -114,3 +114,37 @@ RabbitMQ would stop delivering and the batch would only flush by time. `configur
 
 In AWS the same code writes to S3 when `RAW_BUCKET` is set (`S3RawWriter`, `boto3`). The task role needs only
 `s3:PutObject` on the raw bucket (policy `datalake-ingest`, no delete).
+
+## Crash tests (T-29.4)
+
+`tests/test_consumer_crash.py` runs against a real RabbitMQ (the CI starts one; locally set `RABBITMQ_TEST_URL`). A
+helper consumer (`tests/crash_consumer.py`) dies with `os._exit`, like `kill -9`: no flush, no ACK, no clean close.
+Then a healthy consumer drains the queues.
+
+| Test | Crash point | What it proves |
+|---|---|---|
+| `test_crash_in_the_middle_of_a_batch_loses_nothing` | 200 messages, batches of 20: the first batch is written and acknowledged, the second dies after 10 writes | The 180 unacknowledged messages return to the queue; after the restart all 200 are in raw and the queues are empty. The 10 written twice land on the same key. |
+| `test_crash_before_the_first_write_returns_every_message` | Before any write, with 50 messages in its prefetch | All 50 return; the next consumer stores them. |
+| `test_three_crashes_in_a_row_still_lose_nothing` | Three consumers die one after another, 300 messages | All 300 end in raw. |
+| `test_message_that_crashes_the_consumer_every_time_ends_in_the_dead_letter_queue` | A message that kills the consumer every time it arrives | After the delivery limit RabbitMQ moves it to `readings.dead`; the other 9 messages are stored. The queue does not get stuck. |
+
+Every crash counts as a delivery for the quorum queue, so a normal message survives up to 5 crashes in a row while
+it is in a consumer's prefetch; the dead-letter queue is checked by hand after any incident.
+
+### Manual check with the stack (evidence for the PR)
+
+```powershell
+docker compose up -d --build rabbitmq f3-consumer
+docker compose stop f3-consumer
+python -m simulators.concentrator --no-db --meters 1000 --outage-meters 1000 --outage-hours 24 --ticks 49 --tick-seconds 0
+docker compose start f3-consumer
+Start-Sleep -Seconds 2
+docker compose kill f3-consumer          # like pulling the plug, in the middle of the resend
+docker compose start f3-consumer
+docker compose logs --tail 5 f3-consumer
+(Get-ChildItem lake/raw -Recurse -Filter *.json).Count
+```
+
+Expected: the queues in http://localhost:15672 end at 0 messages, `readings.dead` is empty, and there are **784**
+files: the simulator's last interval line says `784 messages (768 resent), 47906 readings` (16 concentrators: 48 held
+messages each plus the live one). Reference run without the kill: `done: {'stored': 784, 'readings': 47906, ...}`.
