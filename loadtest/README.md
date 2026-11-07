@@ -31,3 +31,18 @@ python -m loadtest.report loadtest/results/before_stats.csv loadtest/results/aft
 
 Write down the machine (CPU, RAM) and the number of users with every result: the same API answers faster on a faster
 laptop, so numbers only compare on the same machine.
+
+## Precomputed months (T-47.2)
+
+The API computes a month from 1,488 half hours per meter on every request; under load that is what pushes p95 up.
+`consumption_daily` stores the answer per customer, day and band (primary key `customer_code, date, band_name`, which
+is also the index of the monthly read). Build the months the demo and the load test use:
+
+```powershell
+python -m alembic upgrade head
+python -m scripts.build_consumption_daily --month 2013-01          # or --from 2012-01 --to 2014-02
+```
+
+A built month is one indexed query of about 90 rows; any other month is still computed, with the same response.
+Rebuild after a new seed. The inventory lookups (`customer.code` unique, `meter.customer_id` indexed since the first
+migration) already had their indexes. Each API worker keeps a connection pool (`DB_POOL_SIZE`, `DB_POOL_OVERFLOW`).
