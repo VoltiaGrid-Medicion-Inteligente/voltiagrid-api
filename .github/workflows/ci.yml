@@ -4,6 +4,7 @@ on:
     branches: [develop, main]
   push:
     branches: [develop]
+  workflow_call: # the deploy workflow runs the same checks before building (US-46)
 
 jobs:
   lint:

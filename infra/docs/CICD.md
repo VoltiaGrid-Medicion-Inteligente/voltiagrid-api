@@ -33,3 +33,37 @@ gives nothing without the GitHub token that only the main branch gets.
 
 Check from a workflow run: the step *Configure AWS credentials* prints `Assuming role with OIDC` and the next AWS call
 works; from a pull request the same step fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity`.
+
+## 2. The pipeline (T-46.2)
+
+`.github/workflows/deploy.yml` runs on every push to `main` (a merged pull request) and by hand (**Actions → deploy →
+Run workflow**):
+
+| Job | What it does | Fails when |
+|---|---|---|
+| `ci` | The same checks as a pull request (`ci.yml`, called as a reusable workflow): lint, tests with Postgres and RabbitMQ, OpenAPI contracts, gitleaks, Terraform | Any check fails: nothing is built or deployed |
+| `images` | Builds the 5 images (same Dockerfiles as `publish-images.ps1`) and pushes them to ECR with the short commit as tag; a tag already in ECR is kept (immutable tags) | A build or push fails |
+| `deploy` | For each of the 4 API services: reads its current task definition, renders a new revision with the new image, registers it, updates the service and waits until it is stable (up to 10 minutes) | The new tasks never become healthy: ECS's circuit breaker rolls the service back to the previous revision and the job ends red |
+
+The run summary lists, per service, the deployed tag and the **previous task definition** (what a manual rollback
+goes back to, T-46.3).
+
+**When the dev stack is down** (between test windows) there are no ECR repositories or services: `images` and
+`deploy` say so in a notice (`the dev stack is down, nothing to push`) and end green. During a window, merge to
+`main` and the APIs are updated without running any script.
+
+**Terraform and the pipeline use the same tag.** The pipeline registers revisions outside Terraform. The next
+`terraform apply` of the window must pass the tag the pipeline deployed (`-var image_tag=<short commit of main>`),
+or Terraform puts back the image it knows.
+
+### Merges are blocked when a check fails
+
+The `main` and `develop` rulesets require the `lint`, `tests` and `secrets` checks and one approval: GitHub greys out
+**Merge** while a required check is red. Evidence for US-46 (one successful and one failed run):
+
+1. **Failed:** a pull request with a test that fails on purpose (for example `assert 1 == 2` in a new test file):
+   the `tests` check goes red and the merge button says *Merging is blocked*. Take the screenshot, close the PR
+   without merging and delete the branch.
+2. **Successful:** a real merge to `main` during a window: the `deploy` run is green with the three jobs, and
+   `aws ecs describe-services --cluster voltiagrid-dev --services api-control-center --query "services[0].taskDefinition"`
+   shows the new revision.
