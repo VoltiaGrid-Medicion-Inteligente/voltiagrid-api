@@ -1,10 +1,12 @@
 """Where the consumption API reads the customer and its meters (US-13, T-13.2).
 
 Routers and services never touch the session: they ask a repository.
-`SqlConsumptionRepository` reads F4; `InMemoryConsumptionRepository` is for
-tests that must run without a database.
+`SqlConsumptionRepository` reads F4 and the precomputed `consumption_daily`
+(US-47); `InMemoryConsumptionRepository` is for tests that must run without a
+database.
 """
 
+from datetime import date
 from typing import Protocol
 
 from fastapi import Depends
@@ -12,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_session
+from app.models.consumption import ConsumptionDaily
 from app.models.inventory import Customer, Meter
 
 
@@ -19,6 +22,8 @@ class ConsumptionRepository(Protocol):
     def customer_exists(self, customer_code: str) -> bool: ...
 
     def meter_ids(self, customer_code: str) -> list[str]: ...
+
+    def stored_daily(self, customer_code: str, first: date, last: date) -> list[dict]: ...
 
 
 class SqlConsumptionRepository:
@@ -37,6 +42,17 @@ class SqlConsumptionRepository:
         )
         return list(self.session.scalars(query))
 
+    def stored_daily(self, customer_code: str, first: date, last: date) -> list[dict]:
+        """Precomputed rows of the month (one indexed range read on the primary key), [] if not built."""
+        query = (
+            select(ConsumptionDaily)
+            .where(ConsumptionDaily.customer_code == customer_code, ConsumptionDaily.date.between(first, last))
+            .order_by(ConsumptionDaily.date)
+        )
+        return [{"date": r.date, "band_name": r.band_name, "energy_kwh": r.energy_kwh, "cost": r.cost,
+                 "readings": r.readings, "estimated_readings": r.estimated_readings}
+                for r in self.session.scalars(query)]
+
 
 class InMemoryConsumptionRepository:
     def __init__(self, meters_by_customer: dict[str, list[str]]):
@@ -47,6 +63,9 @@ class InMemoryConsumptionRepository:
 
     def meter_ids(self, customer_code: str) -> list[str]:
         return self.meters_by_customer.get(customer_code, [])
+
+    def stored_daily(self, customer_code: str, first: date, last: date) -> list[dict]:
+        return []
 
 
 def get_repository(session: Session = Depends(get_session)) -> ConsumptionRepository:

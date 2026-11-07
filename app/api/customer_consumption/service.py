@@ -12,6 +12,10 @@ returns exactly what the pipeline will produce once it cleans F3:
 
 When the clean layer exists, only `_meter_readings` changes; the response stays.
 
+Performance (US-47, T-47.2): a month that `scripts/build_consumption_daily.py`
+already stored in `consumption_daily` is read from there (one indexed query);
+any other month is computed as before.
+
 Access rule (RN-11, CA-10, T-13.3): `ConsumptionService.daily` checks who is
 asking before reading anything, so no router, job or future endpoint can skip it.
 """
@@ -50,6 +54,12 @@ def month_bounds(month: str) -> tuple[datetime, datetime]:
     start = datetime(year, mon, 1, tzinfo=timezone.utc)
     days = calendar.monthrange(year, mon)[1]
     return start, start + timedelta(days=days)
+
+
+def month_days(month: str) -> tuple[date, date]:
+    """First and last day of the month."""
+    start, end = month_bounds(month)
+    return start.date(), (end - timedelta(days=1)).date()
 
 
 def is_missing_day(meter_id: str, day: date, seed: int, defect_rate: float) -> bool:
@@ -133,7 +143,11 @@ class ConsumptionService:
             raise AccessDenied(customer_code)
         if not self.repo.customer_exists(customer_code):
             raise CustomerNotFound(customer_code)
-        rows = daily_by_band(self.repo.meter_ids(customer_code), month, self.tariffs, self.seed, self.defect_rate)
+        rows = self.repo.stored_daily(customer_code, *month_days(month))
+        if rows:
+            rows.sort(key=lambda r: (r["date"], BANDS.index(r["band_name"])))
+        else:
+            rows = daily_by_band(self.repo.meter_ids(customer_code), month, self.tariffs, self.seed, self.defect_rate)
         return {
             "customer_code": customer_code,
             "month": month,
