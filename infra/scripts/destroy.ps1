@@ -6,6 +6,8 @@
   Runs terraform destroy on infra/envs/dev, then asks AWS directly for anything that costs per hour:
   EC2 instances, RDS instances, load balancers, NAT Gateways, Elastic IPs, interface endpoints and ECS tasks.
   The data lake (infra/envs/data) and the state bucket are NOT touched: they are persistent (ADR-012).
+  If the EKS cluster of the comparison window exists (US-50), infra/scripts/destroy-eks.ps1 runs first: the cluster
+  uses subnets of the dev VPC and a rule on the RDS security group, so dev cannot be destroyed while it is there.
 
 .EXAMPLE
   .\infra\scripts\destroy.ps1 -AutoApprove
@@ -24,6 +26,13 @@ if (-not (Test-Path "infra/scripts/destroy.ps1")) { throw "Run this script from 
 
 $account = (aws sts get-caller-identity --query Account --output text).Trim()
 if ($LASTEXITCODE -ne 0 -or -not $account) { throw "No AWS session. Run: aws sso login --profile voltia-admin" }
+
+$eks = aws eks list-clusters --region $Region --query "clusters[?@=='voltiagrid-dev-eks']" --output text
+if ($eks) {
+    Write-Host "The EKS cluster of US-50 exists: destroying it first (infra/scripts/destroy-eks.ps1) ..."
+    & "$PSScriptRoot/destroy-eks.ps1" -AutoApprove:$AutoApprove -Region $Region
+    if ($LASTEXITCODE -ne 0) { throw "destroy-eks.ps1 failed: dev is not destroyed while the cluster uses its VPC" }
+}
 
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 terraform "-chdir=$Stack" init -input=false -reconfigure "-backend-config=bucket=voltiagrid-tfstate-$account" | Out-Null

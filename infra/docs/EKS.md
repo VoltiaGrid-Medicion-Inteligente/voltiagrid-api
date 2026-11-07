@@ -61,3 +61,31 @@ service/f5           ClusterIP   172.20.x.x   8005/TCP
 ```
 
 Evidence for US-50: that output, `kubectl get all -n voltiagrid` and `kubectl describe deployment f5 -n voltiagrid`.
+
+## 3. Destroying the cluster (T-50.4)
+
+At the end of every window:
+
+```powershell
+.\infra\scripts\destroy-eks.ps1 -AutoApprove
+```
+
+| Step | Why |
+|---|---|
+| `kubectl delete namespace voltiagrid` | Removes the F5 objects first, so no pod keeps a network interface in the subnets while the nodes go |
+| `terraform destroy` on `infra/envs/eks` | Cluster, node group, its two subnets, IAM roles and the RDS rule (about 10 minutes) |
+| Check against AWS | No cluster `voltiagrid-dev-eks`, no EC2 node with its tag, no network interface or subnet of it left; exit code 1 otherwise |
+
+`infra/scripts/destroy.ps1` (dev) runs it first when the cluster exists: the cluster lives in the dev VPC and has a rule
+on the RDS security group, so dev cannot be destroyed while it is there. Destroying the cluster never touches dev.
+
+Expected end of the output:
+
+```
+===== Anything of the EKS window left in us-east-1?
+  [OK  ] EKS cluster
+  [OK  ] EC2 nodes of the cluster
+  [OK  ] Network interfaces (cluster)
+  [OK  ] Subnets of the cluster
+Nothing of the EKS window left. The dev stack is untouched.
+```
