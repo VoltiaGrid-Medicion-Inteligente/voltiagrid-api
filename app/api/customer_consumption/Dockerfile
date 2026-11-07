@@ -26,7 +26,7 @@ WORKDIR /app
 # The API imports the F4 models, the consumption model of the simulators and the F7 calendar.
 COPY app ./app
 COPY seed ./seed
-COPY simulators ./
+COPY simulators ./simulators
 # simulators/concentrator imports the RabbitMQ topology of ingestion (KAN-229)
 COPY ingestion ./ingestion
 COPY data/reference ./data/reference
