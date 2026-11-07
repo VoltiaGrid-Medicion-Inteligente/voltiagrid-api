@@ -30,3 +30,34 @@ kubectl get nodes                                         # one node, STATUS Rea
 Cost while it exists: control plane 0.10 USD/hour + t3.small 0.0208 USD/hour + its 20 GB disk, about 0.12 USD per
 hour of window. Check `aws eks describe-cluster-versions --region us-east-1` before a window: if 1.33 left standard
 support, pass `-var kubernetes_version=<newer>` (extended support costs 0.60 USD/hour).
+
+## 2. The F5 simulator on the cluster (T-50.2)
+
+`k8s/f5/` has the three objects US-50 asks for, with the same image, port, size, health check and variables as the
+ECS task of `api-transformer-metering`, so the comparison is only about the orchestrator:
+
+| File | Object | What it does |
+|---|---|---|
+| `namespace.yaml` | Namespace `voltiagrid` | Groups the project's objects; deleting it deletes them all |
+| `deployment.yaml` | Deployment `f5` | 1 replica, 0.25 vCPU / 512 MB, non-root user 10001, readiness and liveness probes on `/health`; database host from the ConfigMap `f5-db`, user and password from the Secret `f5-db` |
+| `service.yaml` | Service `f5` (ClusterIP, port 8005) | Stable address `http://f5.voltiagrid:8005` inside the cluster; no load balancer (not needed for the comparison, it would cost more) |
+
+The image tag and the secrets are not in git. `infra/scripts/eks-deploy-f5.ps1` sets them during the window:
+
+```powershell
+.\infra\scripts\eks-deploy-f5.ps1 -Tag <short commit published to ECR>
+```
+
+It creates the ConfigMap with the RDS host of the dev stack and the Secret with the user and password of the RDS
+secret in Secrets Manager, applies the manifests with `voltiagrid/api-transformer-metering:<Tag>`, waits for the
+rollout and calls the API through a port-forward:
+
+```
+deployment.apps/f5   1/1   ...
+pod/f5-6c9f...       1/1   Running
+service/f5           ClusterIP   172.20.x.x   8005/TCP
+  /health -> ok
+  /transformers -> <number of transformers of the seed> transformers
+```
+
+Evidence for US-50: that output, `kubectl get all -n voltiagrid` and `kubectl describe deployment f5 -n voltiagrid`.
