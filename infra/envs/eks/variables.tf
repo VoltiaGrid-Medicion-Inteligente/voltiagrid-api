@@ -10,9 +10,9 @@ variable "environment" {
 }
 
 variable "kubernetes_version" {
-  description = "EKS version in standard support (check `aws eks describe-cluster-versions` before a window)."
+  description = "EKS version in standard support: 1.35 until 2027-03-27 (check `aws eks describe-cluster-versions`)."
   type        = string
-  default     = "1.33"
+  default     = "1.35"
 }
 
 variable "node_instance_type" {

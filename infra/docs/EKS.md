@@ -10,7 +10,7 @@ destroyed **before** it:
 
 | Resource | Why |
 |---|---|
-| EKS cluster `voltiagrid-dev-eks` (Kubernetes 1.33) | Control plane managed by AWS; API reachable from the laptops (public endpoint) and from the nodes inside the VPC (private endpoint) |
+| EKS cluster `voltiagrid-dev-eks` (Kubernetes 1.35, Amazon Linux 2023 nodes) | Control plane managed by AWS; API reachable from the laptops (public endpoint) and from the nodes inside the VPC (private endpoint) |
 | Managed node group `default`: 1 × `t3.small`, on-demand (max 2) | Enough for the F5 pod and the system pods (11 pods fit a t3.small) |
 | 2 public subnets `10.20.20.0/24` and `10.20.21.0/24` in the dev VPC | The nodes need a public IP to pull images and join the cluster (no NAT, ADR-011); the dev subnets do not give one on launch and stay as they are |
 | IAM roles for the cluster and the nodes | AWS managed policies; the nodes may pull from ECR |
@@ -28,8 +28,9 @@ kubectl get nodes                                         # one node, STATUS Rea
 ```
 
 Cost while it exists: control plane 0.10 USD/hour + t3.small 0.0208 USD/hour + its 20 GB disk, about 0.12 USD per
-hour of window. Check `aws eks describe-cluster-versions --region us-east-1` before a window: if 1.33 left standard
-support, pass `-var kubernetes_version=<newer>` (extended support costs 0.60 USD/hour).
+hour of window. 1.35 is in standard support until 2027-03-27; the cluster has `upgrade_policy = STANDARD`, so it never
+bills extended support (0.60 USD/hour). Before a window, `aws eks describe-cluster-versions --region us-east-1` shows the
+versions in standard support.
 
 ## 2. The F5 simulator on the cluster (T-50.2)
 

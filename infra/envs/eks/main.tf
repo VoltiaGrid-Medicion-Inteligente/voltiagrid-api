@@ -82,6 +82,12 @@ resource "aws_eks_cluster" "this" {
   version  = var.kubernetes_version
   role_arn = aws_iam_role.cluster.arn
 
+  # Never bill extended support (0.60 USD/hour instead of 0.10): when the version leaves standard support, AWS
+  # upgrades the cluster instead of moving it to extended support.
+  upgrade_policy {
+    support_type = "STANDARD"
+  }
+
   vpc_config {
     subnet_ids              = aws_subnet.nodes[*].id
     endpoint_public_access  = true # kubectl from the laptops
@@ -104,6 +110,7 @@ resource "aws_eks_node_group" "default" {
   subnet_ids      = aws_subnet.nodes[*].id
   instance_types  = [var.node_instance_type]
   capacity_type   = "ON_DEMAND"
+  ami_type        = "AL2023_x86_64_STANDARD" # Amazon Linux 2 nodes are not available from Kubernetes 1.33 on
 
   scaling_config {
     desired_size = 1
