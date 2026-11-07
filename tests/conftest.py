@@ -51,6 +51,9 @@ def consumption_app():
         def meter_ids(self, customer_code: str) -> list[str]:
             return [customer_code.removeprefix("CU-")]
 
+        def stored_daily(self, customer_code, first, last) -> list[dict]:
+            return []
+
     app.dependency_overrides[get_repository] = AnyMacCustomer
     yield app
     app.dependency_overrides.pop(get_repository, None)
