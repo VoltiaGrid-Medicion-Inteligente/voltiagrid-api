@@ -27,6 +27,7 @@ WORKDIR /app
 COPY app ./app
 COPY seed ./seed
 COPY simulators ./simulators
+COPY ingestion ./ingestion
 COPY data/reference ./data/reference
 
 USER api
