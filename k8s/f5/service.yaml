@@ -1,0 +1,19 @@
+# Stable address of the F5 pods inside the cluster (US-50, T-50.2): http://f5.voltiagrid:8005.
+# ClusterIP, not LoadBalancer: the comparison does not need a public endpoint (a load balancer would cost about
+# 0.025 USD/hour more); check it with `kubectl port-forward`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: f5
+  namespace: voltiagrid
+  labels:
+    app.kubernetes.io/name: f5
+    app.kubernetes.io/part-of: voltiagrid
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: f5
+  ports:
+    - name: http
+      port: 8005
+      targetPort: http

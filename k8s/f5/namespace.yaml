@@ -1,0 +1,7 @@
+# Namespace of the VoltiaGrid components on EKS (US-50, T-50.2). Deleting it deletes everything inside.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voltiagrid
+  labels:
+    app.kubernetes.io/part-of: voltiagrid
