@@ -56,3 +56,17 @@ output "alb_url" {
   description = "Base URL of the APIs: <alb_url>/consumption, /control-center, /inventory, /f5."
   value       = module.alb.url
 }
+
+output "spark_task_family" {
+  description = "Task definition of the Spark jobs (US-40): Airflow and run-spark.ps1 start it with the job as command."
+  value       = module.spark_task.task_definition_family
+}
+
+output "spark_repository_url" {
+  description = "ECR repository of the Spark jobs image, pushed from voltiagrid-data."
+  value       = module.spark_task.repository_url
+}
+
+output "spark_task_role_arn" {
+  value = module.spark_task.task_role_arn
+}

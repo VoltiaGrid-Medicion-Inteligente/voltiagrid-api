@@ -201,3 +201,25 @@ module "alb" {
 
   tags = { Component = "alb" }
 }
+
+# ---------- Spark jobs on Fargate (US-40, T-40.2) ----------
+
+data "aws_caller_identity" "current" {}
+
+# The data lake lives in its own stack (infra/envs/data, never destroyed with dev): its buckets and the Spark policy
+# are found by name, the same names that stack builds.
+data "aws_iam_policy" "lake_process" {
+  name = "voltiagrid-${var.environment}-datalake-process"
+}
+
+module "spark_task" {
+  source = "../../modules/spark_task"
+
+  name                    = local.name
+  execution_role_arn      = module.ecs.execution_role_arn
+  lake_process_policy_arn = data.aws_iam_policy.lake_process.arn
+  lake_buckets            = { for layer in ["raw", "clean", "curated"] : layer => "voltiagrid-${var.environment}-${layer}-${data.aws_caller_identity.current.account_id}" }
+  image_tag               = var.spark_image_tag
+
+  tags = { Component = "spark", Owner = "p2-data" }
+}

@@ -62,3 +62,9 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
+
+variable "spark_image_tag" {
+  description = "Tag of voltiagrid/spark-jobs (short commit of voltiagrid-data) for the Spark task definition (US-40)."
+  type        = string
+  default     = "none"
+}

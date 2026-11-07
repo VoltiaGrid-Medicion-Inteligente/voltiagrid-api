@@ -23,7 +23,8 @@ infra/
     ├── network/      # VPC, subnets in 2 AZs, routes, Internet Gateway, optional NAT
     ├── rds/          # PostgreSQL 16, private, encrypted, backups, password in Secrets Manager (US-25)
     ├── secrets/      # JWT secret and demo passwords in Secrets Manager (US-25)
-    └── security/     # One Security Group per component, least privilege
+    ├── security/     # One Security Group per component, least privilege
+    └── spark_task/   # Spark jobs on Fargate: ECR repository, task definition, lake role (US-40, docs/SPARK.md)
 ```
 
 ## Prerequisites (Windows, once)
