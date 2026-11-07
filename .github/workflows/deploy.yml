@@ -1,0 +1,134 @@
+name: deploy
+
+# Every merge to main is tested, built, pushed to ECR and deployed to ECS (US-46, T-46.2).
+#   ci      the same checks as a pull request (ci.yml): a red check stops everything after it
+#   images  the 5 images, tag = short commit, pushed to ECR with the OIDC role (T-46.1)
+#   deploy  the 4 API services: new task definition revision with the new image, then wait until it is stable;
+#           ECS's circuit breaker rolls back by itself a deployment whose tasks never become healthy
+# The dev stack exists only during test windows: when it is down there is nothing to push to or deploy, so the
+# images and deploy jobs report it and end green.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # the GitHub OIDC token for AWS
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false   # never stop a deployment half way
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER: voltiagrid-dev
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:   # same names and Dockerfiles as infra/scripts/publish-images.ps1
+          - { image: api-customer-consumption, dockerfile: app/api/customer_consumption/Dockerfile }
+          - { image: api-control-center, dockerfile: app/api/control_center/Dockerfile }
+          - { image: api-network-inventory, dockerfile: app/api/network_inventory/Dockerfile }
+          - { image: api-transformer-metering, dockerfile: simulators/transformer_api/Dockerfile }
+          - { image: migrate-seed, dockerfile: seed/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: repo
+        name: Is the dev stack up (the ECR repository exists)?
+        run: |
+          # Only "repository not found" means the stack is down; any other error (permissions, network) fails the job.
+          if out=$(aws ecr describe-repositories --repository-names "voltiagrid/${{ matrix.image }}" 2>&1); then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          elif echo "$out" | grep -q RepositoryNotFoundException; then
+            echo "up=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::voltiagrid/${{ matrix.image }} does not exist: the dev stack is down, nothing to push"
+          else
+            echo "$out"
+            exit 1
+          fi
+      - id: ecr
+        if: steps.repo.outputs.up == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "Build and push (tags are immutable: an existing tag is kept)"
+        if: steps.repo.outputs.up == 'true'
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/voltiagrid/${{ matrix.image }}:${{ steps.tag.outputs.tag }}
+        run: |
+          if aws ecr describe-images --repository-name "voltiagrid/${{ matrix.image }}" \
+               --image-ids imageTag=${{ steps.tag.outputs.tag }} > /dev/null 2>&1; then
+            echo "::notice::$IMAGE is already in ECR"
+            exit 0
+          fi
+          docker build -f ${{ matrix.dockerfile }} -t "$IMAGE" .
+          docker push "$IMAGE"
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # one service failing does not stop the others; the job still ends red
+      matrix:
+        service: [api-customer-consumption, api-control-center, api-network-inventory, api-transformer-metering]
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: service
+        name: Current task definition of the service
+        run: |
+          # A missing cluster or service means the stack is down; any other error (permissions, network) fails the job.
+          if ! current=$(aws ecs describe-services --cluster "$CLUSTER" --services "${{ matrix.service }}" \
+                           --query "services[?status=='ACTIVE'].taskDefinition | [0]" --output text 2>&1); then
+            if echo "$current" | grep -q ClusterNotFoundException; then current=""; else echo "$current"; exit 1; fi
+          fi
+          if [ -z "$current" ] || [ "$current" = "None" ]; then
+            echo "up=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::service ${{ matrix.service }} is not in $CLUSTER: the dev stack is down, nothing to deploy"
+            exit 0
+          fi
+          echo "up=true" >> "$GITHUB_OUTPUT"
+          aws ecs describe-task-definition --task-definition "$current" --query taskDefinition > task-definition.json
+          echo "previous=$current" >> "$GITHUB_OUTPUT"
+      - id: ecr
+        if: steps.service.outputs.up == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+      - id: render
+        if: steps.service.outputs.up == 'true'
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ matrix.service }}
+          image: ${{ steps.ecr.outputs.registry }}/voltiagrid/${{ matrix.service }}:${{ needs.images.outputs.tag }}
+      - name: Deploy and wait until the service is stable
+        if: steps.service.outputs.up == 'true'
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.CLUSTER }}
+          service: ${{ matrix.service }}
+          wait-for-service-stability: true
+          wait-for-minutes: 10
+      - name: Summary
+        if: steps.service.outputs.up == 'true'
+        run: |
+          echo "### ${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- image tag: \`${{ needs.images.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- previous task definition (for a rollback): \`${{ steps.service.outputs.previous }}\`" >> "$GITHUB_STEP_SUMMARY"
