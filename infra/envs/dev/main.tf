@@ -202,6 +202,17 @@ module "alb" {
   tags = { Component = "alb" }
 }
 
+# ---------- Customer portal on S3 + CloudFront (US-69, KAN-354) ----------
+
+module "portal" {
+  source = "../../modules/portal"
+
+  name       = local.name
+  account_id = data.aws_caller_identity.current.account_id
+
+  tags = { Component = "portal" }
+}
+
 # ---------- Spark jobs on Fargate (US-40, T-40.2) ----------
 
 data "aws_caller_identity" "current" {}
