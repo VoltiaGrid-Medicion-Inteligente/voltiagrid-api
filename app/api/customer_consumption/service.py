@@ -159,6 +159,15 @@ class ConsumptionService:
         }
 
 
+    def profile(self, principal: Principal, customer_code: str) -> dict:
+        """RN-11 first, then the customer's contract, socioeconomic group, meters, transformers and circuits (KAN-349)."""
+        if not can_read_consumption(principal, customer_code):
+            raise AccessDenied(customer_code)
+        profile = self.repo.profile(customer_code)
+        if profile is None:
+            raise CustomerNotFound(customer_code)
+        return profile
+
     def events(self, principal: Principal, customer_code: str, month: str) -> dict:
         """RN-11 first, then the customer, then its events of the month (an empty list is a valid answer)."""
         if not can_read_consumption(principal, customer_code):

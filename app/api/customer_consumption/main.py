@@ -51,6 +51,28 @@ class DailyConsumptionResponse(BaseModel):
     days: list[DailyBandConsumption]
 
 
+class TransformerProfile(BaseModel):
+    code: str = Field(examples=["TR-00001"])
+    capacity_kva: Decimal = Field(examples=["100.00"])
+
+
+class CircuitProfile(BaseModel):
+    code: str = Field(examples=["CT-000"])
+
+
+class MeterProfile(BaseModel):
+    lclid: str = Field(examples=["MAC000002"])
+    transformer: TransformerProfile
+    circuit: CircuitProfile
+
+
+class ProfileResponse(BaseModel):
+    customer_code: str = Field(examples=["CU-MAC000002"])
+    tariff_type: Literal["standard", "dynamic"] | None = Field(description="tariff of the latest contract; null without one")
+    socioeconomic_group: str | None = Field(description="ACORN group (acorn_grouped)", examples=["Comfortable"])
+    meters: list[MeterProfile]
+
+
 class EventParticipation(BaseModel):
     event_id: str = Field(examples=["DR-CT-000-20130722"])
     event_date: date
@@ -122,6 +144,22 @@ def customer_daily_consumption(
     principal: Principal = Depends(get_principal),
 ):
     return _daily(service, principal, customer_code, month)
+
+
+@app.get(
+    "/me/profile",
+    response_model=ProfileResponse,
+    responses={**AUTH_ERRORS, **NOT_FOUND},
+    tags=["profile"],
+    summary="Contract, socioeconomic group, meters, transformers and circuits of the authenticated customer",
+)
+def my_profile(service: Service, principal: Principal = Depends(get_principal)):
+    if principal.role != "customer":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Internal users read customers in the inventory API")
+    try:
+        return service.profile(principal, principal.customer_code)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Customer '{principal.customer_code}' not found") from exc
 
 
 @app.get(

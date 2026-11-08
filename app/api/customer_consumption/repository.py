@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.models.consumption import ConsumptionDaily
 from app.models.demand_response import DrParticipation
-from app.models.inventory import Customer, Meter
+from app.models.inventory import Circuit, Contract, Customer, Meter, Transformer
 
 
 class ConsumptionRepository(Protocol):
@@ -27,6 +27,8 @@ class ConsumptionRepository(Protocol):
     def stored_daily(self, customer_code: str, first: date, last: date) -> list[dict]: ...
 
     def events(self, customer_code: str, first: date, last: date) -> list[dict]: ...
+
+    def profile(self, customer_code: str) -> dict | None: ...
 
 
 class SqlConsumptionRepository:
@@ -70,6 +72,32 @@ class SqlConsumptionRepository:
                 for r in self.session.scalars(query)]
 
 
+    def profile(self, customer_code: str) -> dict | None:
+        """Customer, its latest contract and its meters with transformer and circuit (F4). None if unknown."""
+        customer = self.session.scalar(select(Customer).where(Customer.code == customer_code))
+        if customer is None:
+            return None
+        contract = self.session.scalar(
+            select(Contract).where(Contract.customer_id == customer.id).order_by(Contract.start_date.desc())
+        )
+        meters = self.session.execute(
+            select(Meter.lclid, Transformer.code, Transformer.capacity_kva, Circuit.code)
+            .join(Transformer, Meter.transformer_id == Transformer.id)
+            .join(Circuit, Transformer.circuit_id == Circuit.id)
+            .where(Meter.customer_id == customer.id)
+            .order_by(Meter.lclid)
+        ).all()
+        return {
+            "customer_code": customer.code,
+            "tariff_type": contract.tariff_type if contract else None,
+            "socioeconomic_group": customer.acorn_grouped,
+            "meters": [
+                {"lclid": lclid, "transformer": {"code": t_code, "capacity_kva": cap}, "circuit": {"code": c_code}}
+                for lclid, t_code, cap, c_code in meters
+            ],
+        }
+
+
 class InMemoryConsumptionRepository:
     def __init__(self, meters_by_customer: dict[str, list[str]]):
         self.meters_by_customer = meters_by_customer
@@ -85,6 +113,12 @@ class InMemoryConsumptionRepository:
 
     def events(self, customer_code: str, first: date, last: date) -> list[dict]:
         return []
+
+    def profile(self, customer_code: str) -> dict | None:
+        if customer_code not in self.meters_by_customer:
+            return None
+        return {"customer_code": customer_code, "tariff_type": None, "socioeconomic_group": None,
+                "meters": []}
 
 
 def get_repository(session: Session = Depends(get_session)) -> ConsumptionRepository:
