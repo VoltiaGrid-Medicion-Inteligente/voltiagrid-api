@@ -4,11 +4,12 @@
     open http://localhost:8001/docs
 
 Daily consumption per tariff band of a customer for one month (RF-06), with
-the estimated-readings flag (RN-03). A customer only reads their own data (RN-11):
-the rule lives in `ConsumptionService`, the routers only translate its errors.
+the estimated-readings flag (RN-03), and the customer's demand-response events
+(US-44). A customer only reads their own data (RN-11): the rule lives in
+`ConsumptionService`, the routers only translate its errors.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -26,7 +27,8 @@ MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 app = FastAPI(
     title="VoltiaGrid customer consumption API",
     version="0.2.0",
-    description="Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
+    description="Daily consumption per tariff band and demand-response events of the authenticated customer "
+                "(RF-06, RN-09, RN-11).",
     root_path=get_settings().root_path,  # /consumption behind the load balancer (T-27.3)
 )
 register_error_handlers(app)
@@ -49,13 +51,39 @@ class DailyConsumptionResponse(BaseModel):
     days: list[DailyBandConsumption]
 
 
+class EventParticipation(BaseModel):
+    event_id: str = Field(examples=["DR-CT-000-20130722"])
+    event_date: date
+    start: datetime = Field(description="event window start (UTC)", examples=["2013-07-22T19:00:00"])
+    end: datetime = Field(description="event window end (UTC), 3 hours at most", examples=["2013-07-22T22:00:00"])
+    baseline_kwh: Decimal | None = Field(description="average of the same window over the last 5 working days "
+                                                     "without an event (RN-09); null without 5 days",
+                                         examples=["7.2000"])
+    actual_kwh: Decimal | None = Field(examples=["6.0000"])
+    savings_kwh: Decimal | None = Field(examples=["1.2000"])
+    savings_pct: Decimal | None = Field(description="savings / baseline", examples=["0.1667"])
+    incentive_paid: bool = Field(description="savings of 10% or more (RN-09)")
+    incentive_amount: Decimal = Field(examples=["0.36"])
+
+
+class EventsResponse(BaseModel):
+    customer_code: str = Field(examples=["CU-MAC000002"])
+    month: str = Field(examples=["2013-07"])
+    events: list[EventParticipation]
+    incentives_total: Decimal = Field(examples=["0.36"])
+
+
 MonthQuery = Annotated[str, Query(pattern=MONTH_PATTERN, description="Month as YYYY-MM", examples=["2013-03"])]
 Service = Annotated[ConsumptionService, Depends(get_service)]
 
 
 def _daily(service: ConsumptionService, principal: Principal, customer_code: str, month: str) -> dict:
+    return _call(service.daily, principal, customer_code, month)
+
+
+def _call(method, principal: Principal, customer_code: str, month: str) -> dict:
     try:
-        return service.daily(principal, customer_code, month)
+        return method(principal, customer_code, month)
     except AccessDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Customers can only read their own consumption") from exc
     except CustomerNotFound as exc:
@@ -94,3 +122,32 @@ def customer_daily_consumption(
     principal: Principal = Depends(get_principal),
 ):
     return _daily(service, principal, customer_code, month)
+
+
+@app.get(
+    "/me/events",
+    response_model=EventsResponse,
+    responses={**AUTH_ERRORS, **NOT_FOUND},
+    tags=["demand response"],
+    summary="Demand-response events of the authenticated customer in a month, with savings and incentive",
+)
+def my_events(month: MonthQuery, service: Service, principal: Principal = Depends(get_principal)):
+    if principal.role != "customer":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Use /customers/{customer_code}/events")
+    return _call(service.events, principal, principal.customer_code, month)
+
+
+@app.get(
+    "/customers/{customer_code}/events",
+    response_model=EventsResponse,
+    responses={**AUTH_ERRORS, **NOT_FOUND},
+    tags=["demand response"],
+    summary="Demand-response events of one customer in a month (internal users, or the customer itself)",
+)
+def customer_events(
+    month: MonthQuery,
+    customer_code: Annotated[str, Path(examples=["CU-MAC000002"])],
+    service: Service,
+    principal: Principal = Depends(get_principal),
+):
+    return _call(service.events, principal, customer_code, month)

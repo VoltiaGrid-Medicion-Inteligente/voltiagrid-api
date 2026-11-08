@@ -16,6 +16,9 @@ Performance (US-47, T-47.2): a month that `scripts/build_consumption_daily.py`
 already stored in `consumption_daily` is read from there (one indexed query);
 any other month is computed as before.
 
+Demand response (US-44, T-44.4): `events` returns the customer's participation
+in the month, published by voltiagrid-data; same access rule as the consumption.
+
 Access rule (RN-11, CA-10, T-13.3): `ConsumptionService.daily` checks who is
 asking before reading anything, so no router, job or future endpoint can skip it.
 """
@@ -153,6 +156,21 @@ class ConsumptionService:
             "month": month,
             "has_estimated_readings": any(r["estimated_readings"] for r in rows),
             "days": rows,
+        }
+
+
+    def events(self, principal: Principal, customer_code: str, month: str) -> dict:
+        """RN-11 first, then the customer, then its events of the month (an empty list is a valid answer)."""
+        if not can_read_consumption(principal, customer_code):
+            raise AccessDenied(customer_code)
+        if not self.repo.customer_exists(customer_code):
+            raise CustomerNotFound(customer_code)
+        events = self.repo.events(customer_code, *month_days(month))
+        return {
+            "customer_code": customer_code,
+            "month": month,
+            "events": events,
+            "incentives_total": sum((e["incentive_amount"] for e in events), Decimal("0.00")),
         }
 
 
