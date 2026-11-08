@@ -129,6 +129,164 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "EventParticipation": {
+        "properties": {
+          "actual_kwh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "6.0000"
+            ],
+            "title": "Actual Kwh"
+          },
+          "baseline_kwh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "average of the same window over the last 5 working days without an event (RN-09); null without 5 days",
+            "examples": [
+              "7.2000"
+            ],
+            "title": "Baseline Kwh"
+          },
+          "end": {
+            "description": "event window end (UTC), 3 hours at most",
+            "examples": [
+              "2013-07-22T22:00:00"
+            ],
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "event_date": {
+            "format": "date",
+            "title": "Event Date",
+            "type": "string"
+          },
+          "event_id": {
+            "examples": [
+              "DR-CT-000-20130722"
+            ],
+            "title": "Event Id",
+            "type": "string"
+          },
+          "incentive_amount": {
+            "examples": [
+              "0.36"
+            ],
+            "title": "Incentive Amount",
+            "type": "string"
+          },
+          "incentive_paid": {
+            "description": "savings of 10% or more (RN-09)",
+            "title": "Incentive Paid",
+            "type": "boolean"
+          },
+          "savings_kwh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "1.2000"
+            ],
+            "title": "Savings Kwh"
+          },
+          "savings_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "savings / baseline",
+            "examples": [
+              "0.1667"
+            ],
+            "title": "Savings Pct"
+          },
+          "start": {
+            "description": "event window start (UTC)",
+            "examples": [
+              "2013-07-22T19:00:00"
+            ],
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_date",
+          "start",
+          "end",
+          "baseline_kwh",
+          "actual_kwh",
+          "savings_kwh",
+          "savings_pct",
+          "incentive_paid",
+          "incentive_amount"
+        ],
+        "title": "EventParticipation",
+        "type": "object"
+      },
+      "EventsResponse": {
+        "properties": {
+          "customer_code": {
+            "examples": [
+              "CU-MAC000002"
+            ],
+            "title": "Customer Code",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventParticipation"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "incentives_total": {
+            "examples": [
+              "0.36"
+            ],
+            "title": "Incentives Total",
+            "type": "string"
+          },
+          "month": {
+            "examples": [
+              "2013-07"
+            ],
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_code",
+          "month",
+          "events",
+          "incentives_total"
+        ],
+        "title": "EventsResponse",
+        "type": "object"
+      },
       "FieldError": {
         "properties": {
           "field": {
@@ -280,7 +438,7 @@
     }
   },
   "info": {
-    "description": "Daily consumption per tariff band for the authenticated customer (RF-06, RN-11).",
+    "description": "Daily consumption per tariff band and demand-response events of the authenticated customer (RF-06, RN-09, RN-11).",
     "title": "VoltiaGrid customer consumption API",
     "version": "0.2.0"
   },
@@ -432,6 +590,101 @@
         ]
       }
     },
+    "/customers/{customer_code}/events": {
+      "get": {
+        "operationId": "customer_events_customers__customer_code__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_code",
+            "required": true,
+            "schema": {
+              "examples": [
+                "CU-MAC000002"
+              ],
+              "title": "Customer Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Month as YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "Month as YYYY-MM",
+              "examples": [
+                "2013-03"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Demand-response events of one customer in a month (internal users, or the customer itself)",
+        "tags": [
+          "demand response"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health_health_get",
@@ -533,6 +786,89 @@
         "summary": "Daily consumption per band of the authenticated customer",
         "tags": [
           "consumption"
+        ]
+      }
+    },
+    "/me/events": {
+      "get": {
+        "operationId": "my_events_me_events_get",
+        "parameters": [
+          {
+            "description": "Month as YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "Month as YYYY-MM",
+              "examples": [
+                "2013-03"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Demand-response events of the authenticated customer in a month, with savings and incentive",
+        "tags": [
+          "demand response"
         ]
       }
     }

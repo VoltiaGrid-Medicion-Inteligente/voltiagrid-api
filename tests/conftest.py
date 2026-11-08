@@ -54,6 +54,9 @@ def consumption_app():
         def stored_daily(self, customer_code, first, last) -> list[dict]:
             return []
 
+        def events(self, customer_code, first, last) -> list[dict]:
+            return []
+
     app.dependency_overrides[get_repository] = AnyMacCustomer
     yield app
     app.dependency_overrides.pop(get_repository, None)
