@@ -159,6 +159,38 @@ class ConsumptionService:
         }
 
 
+    def intervals(self, principal: Principal, customer_code: str, day: date) -> dict:
+        """RN-11 first, then the 48 half-hour intervals of one day, summed over the customer's meters (KAN-350).
+
+        Estimated is true for an interval when any meter's reading there was estimated (RN-03). A customer without
+        meters, or a day without readings, is a 404 (CustomerNotFound) rather than 48 zeros.
+        """
+        if not can_read_consumption(principal, customer_code):
+            raise AccessDenied(customer_code)
+        if not self.repo.customer_exists(customer_code):
+            raise CustomerNotFound(customer_code)
+        meter_ids = self.repo.meter_ids(customer_code)
+        if not meter_ids:
+            raise CustomerNotFound(customer_code)
+        start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        totals: dict[datetime, dict] = {}
+        for meter_id in meter_ids:
+            for r in _meter_readings(meter_id, start, end, self.seed, self.defect_rate):
+                row = totals.setdefault(r.interval_start, {"kwh": 0.0, "estimated": False})
+                row["kwh"] += r.energy_kwh
+                row["estimated"] = row["estimated"] or r.estimated
+        intervals = [
+            {
+                "start": ts,
+                "band_name": self.tariffs.band_for(ts).band_name,
+                "energy_kwh": Decimal(str(t["kwh"])).quantize(KWH),
+                "estimated": t["estimated"],
+            }
+            for ts, t in sorted(totals.items())
+        ]
+        return {"customer_code": customer_code, "date": day, "intervals": intervals}
+
     def profile(self, principal: Principal, customer_code: str) -> dict:
         """RN-11 first, then the customer's contract, socioeconomic group, meters, transformers and circuits (KAN-349)."""
         if not can_read_consumption(principal, customer_code):

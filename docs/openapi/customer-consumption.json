@@ -352,6 +352,82 @@
         "title": "Health",
         "type": "object"
       },
+      "IntervalConsumption": {
+        "properties": {
+          "band_name": {
+            "enum": [
+              "peak",
+              "intermediate",
+              "off-peak"
+            ],
+            "title": "Band Name",
+            "type": "string"
+          },
+          "energy_kwh": {
+            "examples": [
+              "0.412"
+            ],
+            "title": "Energy Kwh",
+            "type": "string"
+          },
+          "estimated": {
+            "description": "true when a meter's reading in this half hour was estimated (RN-03)",
+            "title": "Estimated",
+            "type": "boolean"
+          },
+          "start": {
+            "description": "start of the half hour (UTC)",
+            "examples": [
+              "2013-03-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "band_name",
+          "energy_kwh",
+          "estimated"
+        ],
+        "title": "IntervalConsumption",
+        "type": "object"
+      },
+      "IntervalsResponse": {
+        "properties": {
+          "customer_code": {
+            "examples": [
+              "CU-MAC000002"
+            ],
+            "title": "Customer Code",
+            "type": "string"
+          },
+          "date": {
+            "examples": [
+              "2013-03-01"
+            ],
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "intervals": {
+            "description": "48 half hours of the day, in order",
+            "items": {
+              "$ref": "#/components/schemas/IntervalConsumption"
+            },
+            "title": "Intervals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "customer_code",
+          "date",
+          "intervals"
+        ],
+        "title": "IntervalsResponse",
+        "type": "object"
+      },
       "MeterProfile": {
         "properties": {
           "circuit": {
@@ -905,6 +981,89 @@
           }
         ],
         "summary": "Daily consumption per band of the authenticated customer",
+        "tags": [
+          "consumption"
+        ]
+      }
+    },
+    "/me/consumption/intervals": {
+      "get": {
+        "operationId": "my_intervals_me_consumption_intervals_get",
+        "parameters": [
+          {
+            "description": "Day as YYYY-MM-DD",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "Day as YYYY-MM-DD",
+              "examples": [
+                "2013-03-01"
+              ],
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "The 48 half-hour readings of one day for the authenticated customer",
         "tags": [
           "consumption"
         ]

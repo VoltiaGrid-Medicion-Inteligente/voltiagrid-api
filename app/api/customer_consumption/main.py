@@ -9,11 +9,13 @@ the estimated-readings flag (RN-03), and the customer's demand-response events
 `ConsumptionService`, the routers only translate its errors.
 """
 
+import datetime as dt
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.api.auth import router as auth_router
@@ -33,6 +35,13 @@ app = FastAPI(
 )
 register_error_handlers(app)
 app.include_router(auth_router)
+# The portal (voltiagrid-portal) calls this API from its own origin; the list comes from CORS_ORIGINS, never '*'.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(get_settings().cors_origins),
+    allow_methods=["GET"],
+    allow_headers=["Authorization"],
+)
 
 
 class DailyBandConsumption(BaseModel):
@@ -71,6 +80,19 @@ class ProfileResponse(BaseModel):
     tariff_type: Literal["standard", "dynamic"] | None = Field(description="tariff of the latest contract; null without one")
     socioeconomic_group: str | None = Field(description="ACORN group (acorn_grouped)", examples=["Comfortable"])
     meters: list[MeterProfile]
+
+
+class IntervalConsumption(BaseModel):
+    start: datetime = Field(description="start of the half hour (UTC)", examples=["2013-03-01T00:00:00Z"])
+    band_name: Literal["peak", "intermediate", "off-peak"]
+    energy_kwh: Decimal = Field(examples=["0.412"])
+    estimated: bool = Field(description="true when a meter's reading in this half hour was estimated (RN-03)")
+
+
+class IntervalsResponse(BaseModel):
+    customer_code: str = Field(examples=["CU-MAC000002"])
+    date: dt.date = Field(examples=["2013-03-01"])
+    intervals: list[IntervalConsumption] = Field(description="48 half hours of the day, in order")
 
 
 class EventParticipation(BaseModel):
@@ -160,6 +182,26 @@ def my_profile(service: Service, principal: Principal = Depends(get_principal)):
         return service.profile(principal, principal.customer_code)
     except CustomerNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Customer '{principal.customer_code}' not found") from exc
+
+
+@app.get(
+    "/me/consumption/intervals",
+    response_model=IntervalsResponse,
+    responses={**AUTH_ERRORS, **NOT_FOUND},
+    tags=["consumption"],
+    summary="The 48 half-hour readings of one day for the authenticated customer",
+)
+def my_intervals(
+    day: Annotated[date, Query(alias="date", description="Day as YYYY-MM-DD", examples=["2013-03-01"])],
+    service: Service,
+    principal: Principal = Depends(get_principal),
+):
+    if principal.role != "customer":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Internal users read intervals of a customer in the inventory API")
+    try:
+        return service.intervals(principal, principal.customer_code, day)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"No readings for customer '{principal.customer_code}' on {day}") from exc
 
 
 @app.get(

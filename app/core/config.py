@@ -32,6 +32,7 @@ class Settings:
     tariffs_csv: str = "data/reference/tariffs.csv"
     f5_url: str = "http://localhost:8005"
     root_path: str = ""
+    cors_origins: tuple[str, ...] = ("http://localhost:5173",)  # the portal (KAN-350); never "*"
 
     @property
     def database_url(self) -> str:
@@ -57,6 +58,7 @@ def get_settings() -> Settings:
         model_seed=int(os.getenv("SIM_SEED") or "42"),
         defect_rate=float(os.getenv("DEFECT_RATE") or "0.02"),
         tariffs_csv=os.getenv("TARIFFS_CSV") or "data/reference/tariffs.csv",
+        cors_origins=tuple(o.strip() for o in (os.getenv("CORS_ORIGINS") or "http://localhost:5173").split(",") if o.strip()),
         f5_url=os.getenv("F5_URL") or "http://localhost:8005",
         # Path prefix of the API behind the load balancer, for example /control-center (T-27.3).
         root_path=os.getenv("ROOT_PATH") or "",
