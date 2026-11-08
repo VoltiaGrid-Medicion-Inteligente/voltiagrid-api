@@ -67,3 +67,47 @@ The `main` and `develop` rulesets require the `lint`, `tests` and `secrets` chec
 2. **Successful:** a real merge to `main` during a window: the `deploy` run is green with the three jobs, and
    `aws ecs describe-services --cluster voltiagrid-dev --services api-control-center --query "services[0].taskDefinition"`
    shows the new revision.
+
+## 3. Rollback (T-46.3)
+
+Every deployment registers a new revision of the service's task definition and keeps the old ones, so going back is
+pointing the service at an earlier revision. There are two ways back, one automatic and one manual:
+
+| | When | What happens |
+|---|---|---|
+| **Automatic** | The new tasks never become healthy (crash at start, failing health check) | ECS's deployment circuit breaker (on in every service, `infra/modules/ecs`) stops the deployment and returns the service to the last revision that worked; the pipeline's `deploy` job ends red |
+| **Manual** | The new version is healthy but wrong (a bug the health check does not see) | `infra/scripts/rollback.ps1` |
+
+```powershell
+aws sso login --profile voltia-admin
+$env:AWS_PROFILE = "voltia-admin"
+.\infra\scripts\rollback.ps1 -Service api-control-center              # to the previous ACTIVE revision
+.\infra\scripts\rollback.ps1 -Service api-control-center -Revision 7  # to a given revision (the run summary lists it)
+.\infra\scripts\rollback.ps1 -All                                     # the four APIs, each to its previous revision
+```
+
+The script prints the revision and image the service runs now and the ones it goes back to, updates the service,
+waits until it is stable (ECS replaces tasks one by one, the API keeps answering) and checks `/health` through the
+ALB:
+
+```
+===== api-control-center
+  now:  voltiagrid-dev-api-control-center:7  <account>.dkr.ecr.us-east-1.amazonaws.com/voltiagrid/api-control-center:9c41e2a
+  back: voltiagrid-dev-api-control-center:6  <account>.dkr.ecr.us-east-1.amazonaws.com/voltiagrid/api-control-center:3f2a1c9
+  waiting until the service is stable ...
+  running: voltiagrid-dev-api-control-center:6
+  http://<alb>/control-center/health -> ok
+```
+
+After a rollback:
+
+1. **Fix forward in git**: revert the bad commit (`git revert <commit>`) in a pull request; when it is merged the
+   pipeline deploys a new image with the fix, and the rolled-back revision is no longer needed.
+2. **Keep Terraform in line**: the next `terraform apply` of the window takes `-var image_tag=<tag of the revision you
+   went back to>`, or Terraform puts back the image it knows.
+3. **The database is not rolled back.** A migration that the old code cannot read needs its own downgrade
+   (`alembic downgrade -1` in a one-off task) before the rollback; the migrations of sprint 5 only add tables, so
+   the old code keeps working with them.
+
+Evidence for US-46: during a window, deploy a change, run `rollback.ps1` for that service and keep its output and the
+`describe-services` revision before and after.
