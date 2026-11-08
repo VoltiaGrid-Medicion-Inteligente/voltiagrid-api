@@ -70,3 +70,18 @@ output "spark_repository_url" {
 output "spark_task_role_arn" {
   value = module.spark_task.task_role_arn
 }
+
+output "portal_bucket_name" {
+  description = "Bucket of the portal build: infra/scripts/deploy-portal.ps1 uploads dist/ here."
+  value       = module.portal.bucket_name
+}
+
+output "portal_distribution_id" {
+  description = "CloudFront distribution of the portal (invalidated after each upload)."
+  value       = module.portal.distribution_id
+}
+
+output "portal_url" {
+  description = "Address of the customer portal."
+  value       = module.portal.url
+}
