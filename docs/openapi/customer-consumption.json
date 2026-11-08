@@ -1,6 +1,22 @@
 {
   "components": {
     "schemas": {
+      "CircuitProfile": {
+        "properties": {
+          "code": {
+            "examples": [
+              "CT-000"
+            ],
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CircuitProfile",
+        "type": "object"
+      },
       "DailyBandConsumption": {
         "properties": {
           "band_name": {
@@ -336,6 +352,87 @@
         "title": "Health",
         "type": "object"
       },
+      "MeterProfile": {
+        "properties": {
+          "circuit": {
+            "$ref": "#/components/schemas/CircuitProfile"
+          },
+          "lclid": {
+            "examples": [
+              "MAC000002"
+            ],
+            "title": "Lclid",
+            "type": "string"
+          },
+          "transformer": {
+            "$ref": "#/components/schemas/TransformerProfile"
+          }
+        },
+        "required": [
+          "lclid",
+          "transformer",
+          "circuit"
+        ],
+        "title": "MeterProfile",
+        "type": "object"
+      },
+      "ProfileResponse": {
+        "properties": {
+          "customer_code": {
+            "examples": [
+              "CU-MAC000002"
+            ],
+            "title": "Customer Code",
+            "type": "string"
+          },
+          "meters": {
+            "items": {
+              "$ref": "#/components/schemas/MeterProfile"
+            },
+            "title": "Meters",
+            "type": "array"
+          },
+          "socioeconomic_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ACORN group (acorn_grouped)",
+            "examples": [
+              "Comfortable"
+            ],
+            "title": "Socioeconomic Group"
+          },
+          "tariff_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard",
+                  "dynamic"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "tariff of the latest contract; null without one",
+            "title": "Tariff Type"
+          }
+        },
+        "required": [
+          "customer_code",
+          "tariff_type",
+          "socioeconomic_group",
+          "meters"
+        ],
+        "title": "ProfileResponse",
+        "type": "object"
+      },
       "TokenRequest": {
         "properties": {
           "password": {
@@ -386,6 +483,30 @@
           "expires_in"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "TransformerProfile": {
+        "properties": {
+          "capacity_kva": {
+            "examples": [
+              "100.00"
+            ],
+            "title": "Capacity Kva",
+            "type": "string"
+          },
+          "code": {
+            "examples": [
+              "TR-00001"
+            ],
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "capacity_kva"
+        ],
+        "title": "TransformerProfile",
         "type": "object"
       },
       "ValidationError": {
@@ -869,6 +990,62 @@
         "summary": "Demand-response events of the authenticated customer in a month, with savings and incentive",
         "tags": [
           "demand response"
+        ]
+      }
+    },
+    "/me/profile": {
+      "get": {
+        "operationId": "my_profile_me_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not allowed to read this resource"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Contract, socioeconomic group, meters, transformers and circuits of the authenticated customer",
+        "tags": [
+          "profile"
         ]
       }
     }
