@@ -55,31 +55,50 @@ if ($LASTEXITCODE -ne 0 -or -not $account) { throw "No AWS session. Run: aws sso
 $registry = "$account.dkr.ecr.$Region.amazonaws.com"
 
 Write-Host "Registry: $registry   Tag: $Tag"
-Invoke-Native "docker login to ECR" {
-    aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry
-}
 
-$names = @($Images.Keys)
-if ($Only.Count -gt 0) { $names = @($names | Where-Object { $Only -contains $_ }) }
+# Docker Desktop on Windows keeps logins in the Windows credential store, which rejects the ECR token
+# ("error storing credentials ... The data is invalid"). This run logs in with a Docker config of its own that
+# stores the token in a file, and deletes it at the end. An empty "auths" would make Docker fall back to the
+# credential store, so the file starts with one placeholder entry.
+$dockerConfig = Join-Path ([IO.Path]::GetTempPath()) "voltiagrid-ecr-$PID"
+New-Item -ItemType Directory -Force -Path $dockerConfig | Out-Null
+Set-Content -Path (Join-Path $dockerConfig "config.json") -Value '{"auths":{"placeholder.invalid":{}}}' -Encoding ascii
+$previousDockerConfig = $env:DOCKER_CONFIG
+$env:DOCKER_CONFIG = $dockerConfig
 
-foreach ($name in $names) {
-    $repo = "voltiagrid/$name"
-    $remote = "$registry/${repo}:$Tag"
-
-    # "Continue" here: in Windows PowerShell 5.1 a redirected error of a native command would stop the script.
-    $ErrorActionPreference = "Continue"
-    $existing = aws ecr describe-images --region $Region --repository-name $repo --image-ids "imageTag=$Tag" --query "imageDetails[0].imageTags" --output text 2>$null
-    $found = ($LASTEXITCODE -eq 0 -and $existing)
-    $ErrorActionPreference = "Stop"
-    if ($found) {
-        Write-Host "== $name : $Tag already in ECR, skipped"
-        continue
+try {
+    Invoke-Native "docker login to ECR" {
+        # The token goes through a variable: piped straight from aws.exe, PowerShell can add characters to it.
+        $password = (aws ecr get-login-password --region $Region).Trim()
+        docker login --username AWS --password $password $registry
     }
 
-    Write-Host "== $name : build"
-    Invoke-Native "docker build $name" { docker build --platform linux/amd64 -f $Images[$name] -t "${repo}:local" -t $remote . }
-    Write-Host "== $name : push"
-    Invoke-Native "docker push $name" { docker push $remote }
+    $names = @($Images.Keys)
+    if ($Only.Count -gt 0) { $names = @($names | Where-Object { $Only -contains $_ }) }
+
+    foreach ($name in $names) {
+        $repo = "voltiagrid/$name"
+        $remote = "$registry/${repo}:$Tag"
+
+        # "Continue" here: in Windows PowerShell 5.1 a redirected error of a native command would stop the script.
+        $ErrorActionPreference = "Continue"
+        $existing = aws ecr describe-images --region $Region --repository-name $repo --image-ids "imageTag=$Tag" --query "imageDetails[0].imageTags" --output text 2>$null
+        $found = ($LASTEXITCODE -eq 0 -and $existing)
+        $ErrorActionPreference = "Stop"
+        if ($found) {
+            Write-Host "== $name : $Tag already in ECR, skipped"
+            continue
+        }
+
+        Write-Host "== $name : build"
+        Invoke-Native "docker build $name" { docker build --platform linux/amd64 -f $Images[$name] -t "${repo}:local" -t $remote . }
+        Write-Host "== $name : push"
+        Invoke-Native "docker push $name" { docker push $remote }
+    }
+}
+finally {
+    $env:DOCKER_CONFIG = $previousDockerConfig
+    Remove-Item -Recurse -Force -Path $dockerConfig -ErrorAction SilentlyContinue
 }
 
 Write-Host ""
