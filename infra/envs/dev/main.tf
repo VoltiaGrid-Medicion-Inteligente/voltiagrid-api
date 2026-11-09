@@ -121,6 +121,8 @@ locals {
         JWT_EXPIRE_MINUTES = "60"
         SIM_SEED           = "42"
         DEFECT_RATE        = "0.02"
+        # Origins the browser may call this API from (KAN-350): the portal in development and on CloudFront.
+        CORS_ORIGINS = "http://localhost:5173,${module.portal.url}"
       })
       secrets = merge(local.db_secrets, {
         JWT_SECRET             = "${local.app_secret}:jwt_secret::"
