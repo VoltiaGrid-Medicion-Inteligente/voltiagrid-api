@@ -68,3 +68,9 @@ variable "spark_image_tag" {
   type        = string
   default     = "none"
 }
+
+variable "alarm_email" {
+  description = "Address that receives the CloudWatch alarms of the dev stack (US-63). Empty: no subscription."
+  type        = string
+  default     = ""
+}

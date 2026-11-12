@@ -236,3 +236,19 @@ module "spark_task" {
 
   tags = { Component = "spark", Owner = "p2-data" }
 }
+
+# ---------- Monitoring (US-63, T-63.1 dashboard and T-63.2 alarms) ----------
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name                      = local.name
+  alb_arn_suffix            = module.alb.lb_arn_suffix
+  target_group_arn_suffixes = module.alb.target_group_arn_suffixes
+  cluster_name              = module.ecs.cluster_name
+  service_names             = keys(local.services)
+  rds_identifier            = "${local.name}-db"
+  alarm_email               = var.alarm_email
+
+  tags = { Component = "monitoring" }
+}
